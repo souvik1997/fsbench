@@ -1,0 +1,207 @@
+[2018-01-28][13:37:46][micro_benchmark][[32mINFO[0m] Running benchmark on "/mnt/test/" with 100000 files
+[2018-01-28][13:37:46][micro_benchmark][[32mINFO[0m] Running create test (no fsync)..
+[2018-01-28][13:37:48][micro_benchmark][[32mINFO[0m] Finished micro-create:
+[2018-01-28][13:37:48][micro_benchmark][[32mINFO[0m]  - Open: Completed 100000 operations (0 bytes) in 0.655875802 s
+ - Average latency = 0.000006558
+ - Bytes/Operation = 0
+ - Operations/Second = 152467.89055956056
+
+[2018-01-28][13:37:48][micro_benchmark][[32mINFO[0m]  - Close: Completed 100000 operations (0 bytes) in 0.046893707 s
+ - Average latency = 0.000000468
+ - Bytes/Operation = 0
+ - Operations/Second = 2132482.296611782
+
+[2018-01-28][13:37:48][micro_benchmark][[32mINFO[0m]  - Fsync: Completed 0 operations (0 bytes) in 0.000000000 s
+ - Average latency = (inf)
+ - Bytes/Operation = NaN
+ - Operations/Second = NaN
+
+[2018-01-28][13:37:48][micro_benchmark][[32mINFO[0m]  - Sync: Completed 0 operations (0 bytes) in 0.000000000 s
+ - Average latency = (inf)
+ - Bytes/Operation = NaN
+ - Operations/Second = NaN
+
+[2018-01-28][13:37:48][micro_benchmark][[32mINFO[0m]  - Total: Completed 200000 operations (0 bytes) in 0.702769509 s
+ - Average latency = 0.000003513
+ - Bytes/Operation = 0
+ - Operations/Second = 284588.3286606847
+
+[2018-01-28][13:37:50][micro_benchmark][[32mINFO[0m] Running create test (end sync)..
+[2018-01-28][13:37:54][micro_benchmark][[32mINFO[0m] Finished micro-create:
+[2018-01-28][13:37:54][micro_benchmark][[32mINFO[0m]  - Open: Completed 100000 operations (0 bytes) in 0.683684848 s
+ - Average latency = 0.000006836
+ - Bytes/Operation = 0
+ - Operations/Second = 146266.22235746842
+
+[2018-01-28][13:37:54][micro_benchmark][[32mINFO[0m]  - Close: Completed 100000 operations (0 bytes) in 0.047277750 s
+ - Average latency = 0.000000472
+ - Bytes/Operation = 0
+ - Operations/Second = 2115159.879647403
+
+[2018-01-28][13:37:54][micro_benchmark][[32mINFO[0m]  - Fsync: Completed 0 operations (0 bytes) in 0.000000000 s
+ - Average latency = (inf)
+ - Bytes/Operation = NaN
+ - Operations/Second = NaN
+
+[2018-01-28][13:37:54][micro_benchmark][[32mINFO[0m]  - Sync: Completed 1 operations (0 bytes) in 2.092399029 s
+ - Average latency = 2.092399029
+ - Bytes/Operation = 0
+ - Operations/Second = 0.47792031354455383
+
+[2018-01-28][13:37:54][micro_benchmark][[32mINFO[0m]  - Total: Completed 200001 operations (0 bytes) in 2.823361627 s
+ - Average latency = 0.000014115
+ - Bytes/Operation = 0
+ - Operations/Second = 70837.89695495497
+
+[2018-01-28][13:37:54][micro_benchmark][[32mINFO[0m] Running create test (intermittent fsync)..
+[2018-01-28][13:38:28][micro_benchmark][[32mINFO[0m] Finished micro-create:
+[2018-01-28][13:38:28][micro_benchmark][[32mINFO[0m]  - Open: Completed 100000 operations (0 bytes) in 2.703742245 s
+ - Average latency = 0.000027037
+ - Bytes/Operation = 0
+ - Operations/Second = 36985.77413765268
+
+[2018-01-28][13:38:28][micro_benchmark][[32mINFO[0m]  - Close: Completed 100000 operations (0 bytes) in 0.208810062 s
+ - Average latency = 0.000002088
+ - Bytes/Operation = 0
+ - Operations/Second = 478904.1248404974
+
+[2018-01-28][13:38:28][micro_benchmark][[32mINFO[0m]  - Fsync: Completed 10000 operations (0 bytes) in 28.880415193 s
+ - Average latency = 0.002888041
+ - Bytes/Operation = 0
+ - Operations/Second = 346.2554098745709
+
+[2018-01-28][13:38:28][micro_benchmark][[32mINFO[0m]  - Sync: Completed 0 operations (0 bytes) in 0.000000000 s
+ - Average latency = (inf)
+ - Bytes/Operation = NaN
+ - Operations/Second = NaN
+
+[2018-01-28][13:38:28][micro_benchmark][[32mINFO[0m]  - Total: Completed 210000 operations (0 bytes) in 31.792967500 s
+ - Average latency = 0.000151395
+ - Bytes/Operation = 0
+ - Operations/Second = 6605.234317935247
+
+[2018-01-28][13:38:28][micro_benchmark][[32mINFO[0m] Running create test (intermittent fsync with end sync)..
+[2018-01-28][13:39:00][micro_benchmark][[32mINFO[0m] Finished micro-create:
+[2018-01-28][13:39:00][micro_benchmark][[32mINFO[0m]  - Open: Completed 100000 operations (0 bytes) in 2.907339973 s
+ - Average latency = 0.000029073
+ - Bytes/Operation = 0
+ - Operations/Second = 34395.702232516305
+
+[2018-01-28][13:39:00][micro_benchmark][[32mINFO[0m]  - Close: Completed 100000 operations (0 bytes) in 0.209287484 s
+ - Average latency = 0.000002092
+ - Bytes/Operation = 0
+ - Operations/Second = 477811.6592963581
+
+[2018-01-28][13:39:00][micro_benchmark][[32mINFO[0m]  - Fsync: Completed 10000 operations (0 bytes) in 26.958875656 s
+ - Average latency = 0.002695887
+ - Bytes/Operation = 0
+ - Operations/Second = 370.9353508507462
+
+[2018-01-28][13:39:00][micro_benchmark][[32mINFO[0m]  - Sync: Completed 1 operations (0 bytes) in 0.004900803 s
+ - Average latency = 0.004900803
+ - Bytes/Operation = 0
+ - Operations/Second = 204.04819373478185
+
+[2018-01-28][13:39:00][micro_benchmark][[32mINFO[0m]  - Total: Completed 210001 operations (0 bytes) in 30.080403916 s
+ - Average latency = 0.000143238
+ - Bytes/Operation = 0
+ - Operations/Second = 6981.322477797541
+
+[2018-01-28][13:39:00][micro_benchmark][[32mINFO[0m] Running create test (frequent fsync)..
+[2018-01-28][13:43:17][micro_benchmark][[32mINFO[0m] Finished micro-create:
+[2018-01-28][13:43:17][micro_benchmark][[32mINFO[0m]  - Open: Completed 100000 operations (0 bytes) in 4.881068073 s
+ - Average latency = 0.000048810
+ - Bytes/Operation = 0
+ - Operations/Second = 20487.319272017045
+
+[2018-01-28][13:43:17][micro_benchmark][[32mINFO[0m]  - Close: Completed 100000 operations (0 bytes) in 0.546762937 s
+ - Average latency = 0.000005467
+ - Bytes/Operation = 0
+ - Operations/Second = 182894.62074493172
+
+[2018-01-28][13:43:17][micro_benchmark][[32mINFO[0m]  - Fsync: Completed 100000 operations (0 bytes) in 248.077621019 s
+ - Average latency = 0.002480776
+ - Bytes/Operation = 0
+ - Operations/Second = 403.0996411092684
+
+[2018-01-28][13:43:17][micro_benchmark][[32mINFO[0m]  - Sync: Completed 0 operations (0 bytes) in 0.000000000 s
+ - Average latency = (inf)
+ - Bytes/Operation = NaN
+ - Operations/Second = NaN
+
+[2018-01-28][13:43:17][micro_benchmark][[32mINFO[0m]  - Total: Completed 300000 operations (0 bytes) in 253.505452029 s
+ - Average latency = 0.000845017
+ - Bytes/Operation = 0
+ - Operations/Second = 1183.406501118095
+
+[2018-01-28][13:43:17][micro_benchmark][[32mINFO[0m] Running create test (frequent fsync with end sync)..
+[2018-01-28][13:47:27][micro_benchmark][[32mINFO[0m] Finished micro-create:
+[2018-01-28][13:47:27][micro_benchmark][[32mINFO[0m]  - Open: Completed 100000 operations (0 bytes) in 3.588131674 s
+ - Average latency = 0.000035881
+ - Bytes/Operation = 0
+ - Operations/Second = 27869.65727166901
+
+[2018-01-28][13:47:27][micro_benchmark][[32mINFO[0m]  - Close: Completed 100000 operations (0 bytes) in 0.388940044 s
+ - Average latency = 0.000003889
+ - Bytes/Operation = 0
+ - Operations/Second = 257109.03657942713
+
+[2018-01-28][13:47:27][micro_benchmark][[32mINFO[0m]  - Fsync: Completed 100000 operations (0 bytes) in 243.062530976 s
+ - Average latency = 0.002430625
+ - Bytes/Operation = 0
+ - Operations/Second = 411.41676423123397
+
+[2018-01-28][13:47:27][micro_benchmark][[32mINFO[0m]  - Sync: Completed 1 operations (0 bytes) in 0.152075059 s
+ - Average latency = 0.152075059
+ - Bytes/Operation = 0
+ - Operations/Second = 6.575700227083258
+
+[2018-01-28][13:47:27][micro_benchmark][[32mINFO[0m]  - Total: Completed 300001 operations (0 bytes) in 247.191677753 s
+ - Average latency = 0.000823968
+ - Bytes/Operation = 0
+ - Operations/Second = 1213.6371366829283
+
+[2018-01-28][13:47:27][micro_benchmark][[32mINFO[0m] Running rename test..
+[2018-01-28][13:47:32][micro_benchmark][[32mINFO[0m] Finished micro-delete:
+[2018-01-28][13:47:32][micro_benchmark][[32mINFO[0m]  - Open: Completed 100000 operations (0 bytes) in 0.705955546 s
+ - Average latency = 0.000007059
+ - Bytes/Operation = 0
+ - Operations/Second = 141651.9787493815
+
+[2018-01-28][13:47:32][micro_benchmark][[32mINFO[0m]  - Close: Completed 100000 operations (0 bytes) in 0.048833070 s
+ - Average latency = 0.000000488
+ - Bytes/Operation = 0
+ - Operations/Second = 2047792.6126700616
+
+[2018-01-28][13:47:32][micro_benchmark][[32mINFO[0m]  - Rename: Completed 100000 operations (0 bytes) in 1.037276056 s
+ - Average latency = 0.000010372
+ - Bytes/Operation = 0
+ - Operations/Second = 96406.35144478838
+
+[2018-01-28][13:47:32][micro_benchmark][[32mINFO[0m]  - Total: Completed 300000 operations (0 bytes) in 1.792064672 s
+ - Average latency = 0.000005973
+ - Bytes/Operation = 0
+ - Operations/Second = 167404.67277064876
+
+[2018-01-28][13:47:35][micro_benchmark][[32mINFO[0m] Running delete test..
+[2018-01-28][13:47:39][micro_benchmark][[32mINFO[0m] Finished micro-delete:
+[2018-01-28][13:47:39][micro_benchmark][[32mINFO[0m]  - Open: Completed 100000 operations (0 bytes) in 0.759198452 s
+ - Average latency = 0.000007591
+ - Bytes/Operation = 0
+ - Operations/Second = 131717.86604222422
+
+[2018-01-28][13:47:39][micro_benchmark][[32mINFO[0m]  - Close: Completed 100000 operations (0 bytes) in 0.051829548 s
+ - Average latency = 0.000000518
+ - Bytes/Operation = 0
+ - Operations/Second = 1929401.3522942548
+
+[2018-01-28][13:47:39][micro_benchmark][[32mINFO[0m]  - Unlink: Completed 100000 operations (0 bytes) in 1.539736608 s
+ - Average latency = 0.000015397
+ - Bytes/Operation = 0
+ - Operations/Second = 64946.17292362253
+
+[2018-01-28][13:47:39][micro_benchmark][[32mINFO[0m]  - Total: Completed 300000 operations (0 bytes) in 2.350764608 s
+ - Average latency = 0.000007835
+ - Bytes/Operation = 0
+ - Operations/Second = 127618.05200701745
+

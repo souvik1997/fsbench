@@ -11,3 +11,5 @@ rand = "^0.4.2"
 log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }
 fern = { version = "^0.5.2", features = ["colored"] }
 chrono = "^0.4.0"
+rayon = "^1.0.0"
+tempdir = "0.3"

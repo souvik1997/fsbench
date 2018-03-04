@@ -1,10 +1,12 @@
 extern crate fsbench;
 extern crate rand;
+extern crate nix;
 use fsbench::*;
 use rand::Rng;
 use rand::distributions::Sample;
 use std::path::PathBuf;
 use std::cmp::min;
+use std::ops::Deref;
 
 fn main() {
     // TODO: clean up code
@@ -114,12 +116,12 @@ fn main() {
         closefile4.run(fd1).expect("failed to close file");
     }
 
-    let create_stats = createfile2.stats + createfile2_write.stats;
-    let delete_stats = deletefile1.stats;
-    let open_stats = openfile3.stats + openfile4.stats;
-    let write_stats = appendfilerand2.stats + appendfilerand3.stats;
-    let read_stats = readfile3.stats + readfile4.stats;
-    let fsync_stats = fsyncfile2.stats + fsyncfile3.stats;
+    let create_stats = createfile2.stats.read().unwrap().deref().clone() + createfile2_write.stats.read().unwrap().deref().clone();
+    let delete_stats = deletefile1.stats.read().unwrap().deref().clone();
+    let open_stats = openfile3.stats.read().unwrap().deref().clone() + openfile4.stats.read().unwrap().deref().clone();
+    let write_stats = appendfilerand2.stats.read().unwrap().deref().clone() + appendfilerand3.stats.read().unwrap().deref().clone();
+    let read_stats = readfile3.stats.read().unwrap().deref().clone() + readfile4.stats.read().unwrap().deref().clone();
+    let fsync_stats = fsyncfile2.stats.read().unwrap().deref().clone() + fsyncfile3.stats.read().unwrap().deref().clone();
     println!("Completed varmail benchmark");
     println!("Create stats: {}", create_stats);
     println!("Delete stats: {}", delete_stats);

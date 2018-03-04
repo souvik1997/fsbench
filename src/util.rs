@@ -23,13 +23,13 @@ pub fn mkdir(path: &Path) -> io::Result<()> {
     }
 }
 
-pub fn drop_cache() -> io::Result<()> {
+pub fn drop_cache() {
     // 'echo 3 >/proc/sys/vm/drop_caches'
+    sync_all();
     let mut drop_cache_file = OpenOptions::new()
         .write(true)
-        .open("/proc/sys/vm/drop_caches")?;
-    drop_cache_file.write_all(b"3\n")?;
-    Ok(())
+        .open("/proc/sys/vm/drop_caches").expect("failed to open drop_caches but we should be root");
+    drop_cache_file.write_all(b"3\n").expect("failed to write to drop_caches but we should be root");
 }
 
 // Wrapper around unsafe libc::sync

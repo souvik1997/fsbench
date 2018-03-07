@@ -13,7 +13,7 @@ pub struct ListDir {
 }
 
 impl ListDir {
-    pub fn run<R: IndependentSample<f64>>(config: &Configuration<R>) -> Self {
+    pub fn run<R: IndependentSample<f64>, RV: IndependentSample<f64>>(config: &Configuration<R, RV>) -> Self {
         drop_cache();
         let config_path: &Path = config.filesystem_path.as_ref();
         let base_path = PathBuf::from(config_path.join("delete"));
@@ -43,15 +43,18 @@ impl ListDir {
 
         drop_cache();
 
-        let trace = config.blktrace.record_with(|| {
-            const ITERATIONS: usize = 1000000;
-            for _ in 0..ITERATIONS {
-                let directory = rand::thread_rng()
-                    .choose(&directories)
-                    .expect("failed to randomly select directory");
-                readdir.run(directory).expect("failed to read directory");
-            }
-        }).expect("failed to record trace");
+        let trace = config
+            .blktrace
+            .record_with(|| {
+                const ITERATIONS: usize = 1000000;
+                for _ in 0..ITERATIONS {
+                    let directory = rand::thread_rng()
+                        .choose(&directories)
+                        .expect("failed to randomly select directory");
+                    readdir.run(directory).expect("failed to read directory");
+                }
+            })
+            .expect("failed to record trace");
 
         let open_stats = open.stats.read().unwrap().deref().clone();
         let close_stats = close.stats.read().unwrap().deref().clone();
@@ -59,8 +62,15 @@ impl ListDir {
         info!(" - Open: {}", open_stats);
         info!(" - Close: {}", close_stats);
         info!(" - Readdir: {}", readdir_stats);
-        info!(" - Total: {}", open_stats.clone() + close_stats.clone() + readdir_stats.clone());
-        info!(" - Blktrace recorded {} bytes on {} cpus", trace.total_bytes(), trace.num_cpus());
+        info!(
+            " - Total: {}",
+            open_stats.clone() + close_stats.clone() + readdir_stats.clone()
+        );
+        info!(
+            " - Blktrace recorded {} bytes on {} cpus",
+            trace.total_bytes(),
+            trace.num_cpus()
+        );
         drop_cache();
         trace.export(&config.output_dir, &"listdir");
         Self {

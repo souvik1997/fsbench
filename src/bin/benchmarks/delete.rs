@@ -13,7 +13,7 @@ pub struct DeleteFiles {
 }
 
 impl DeleteFiles {
-    pub fn run<R: IndependentSample<f64>>(config: &Configuration<R>) -> Self {
+    pub fn run<R: IndependentSample<f64>, RV: IndependentSample<f64>>(config: &Configuration<R, RV>) -> Self {
         drop_cache();
         let config_path: &Path = config.filesystem_path.as_ref();
         let base_path = PathBuf::from(config_path.join("delete"));
@@ -41,11 +41,14 @@ impl DeleteFiles {
 
         drop_cache();
 
-        let trace = config.blktrace.record_with(|| {
-            for file in &file_set_shuffled {
-                unlink.run(file).expect("failed to unlink file");
-            }
-        }).expect("failed to record trace");
+        let trace = config
+            .blktrace
+            .record_with(|| {
+                for file in &file_set_shuffled {
+                    unlink.run(file).expect("failed to unlink file");
+                }
+            })
+            .expect("failed to record trace");
 
         info!("Finished micro-delete:");
         let open_stats = open.stats.read().unwrap().deref().clone();
@@ -54,8 +57,15 @@ impl DeleteFiles {
         info!(" - Open: {}", open_stats);
         info!(" - Close: {}", close_stats);
         info!(" - Unlink: {}", unlink_stats);
-        info!(" - Total: {}", open_stats.clone() + close_stats.clone() + unlink_stats.clone());
-        info!(" - Blktrace recorded {} bytes on {} cpus", trace.total_bytes(), trace.num_cpus());
+        info!(
+            " - Total: {}",
+            open_stats.clone() + close_stats.clone() + unlink_stats.clone()
+        );
+        info!(
+            " - Blktrace recorded {} bytes on {} cpus",
+            trace.total_bytes(),
+            trace.num_cpus()
+        );
         drop_cache();
         trace.export(&config.output_dir, &"deletefiles");
         Self {

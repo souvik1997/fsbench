@@ -250,27 +250,53 @@ impl Blktrace {
         use std::io::Read;
         use util::drop_cache;
 
+        // The buffers are vectors of u8's
         let buffers: Arc<RwLock<Vec<Buffer>>> = {
             let mut v = Vec::new();
             v.resize(self.trace_paths.len(), Vec::new());
             Arc::new(RwLock::new(v))
         };
-        println!("buffer size: {}", buffers.read().unwrap().len());
+
+        // Open the trace files using O_NONBLOCK
         let mut file_descriptors: Vec<RawFd> = Vec::new();
         for path in &self.trace_paths {
             file_descriptors.push(nix::fcntl::open(path, nix::fcntl::OFlag::O_RDONLY | nix::fcntl::OFlag::O_NONBLOCK, nix::sys::stat::Mode::S_IRWXU)?);
         }
+
+        // unsafe: make Rust file objects from the raw file descriptors
+        let mut files: Vec<File> = file_descriptors.iter().map(|fd| unsafe { File::from_raw_fd(*fd) }).collect();
+
+        // Wait some time to allow IO events to accumulate
+        drop_cache();
+        thread::sleep(Duration::from_millis(10000));
+
+        // Read all events and throw them away
+        let mut throwaway_data: Vec<u8> = Vec::new();
+        for mut f in &files {
+            f.read_to_end(&mut throwaway_data);
+            throwaway_data.resize(0, 0);
+        }
+
+        // Used to signal the thread to cancel
         let cancel_flag = Arc::new(AtomicBool::new(false));
+        // clone: moved into thread
         let cancel_flag_thread = cancel_flag.clone();
+
+        // moved into thread
         let buffers_thread = buffers.clone();
+
+        // spawn the reader thread
         let thread = thread::spawn(move || {
-            let mut files: Vec<File> = file_descriptors.iter().map(|fd| unsafe { File::from_raw_fd(*fd) }).collect();
+            // setup file descriptors for poll()
             let mut poll_file_descriptors: Vec<PollFd> = file_descriptors.iter().map(|fd| PollFd::new(*fd, EventFlags::POLLIN)).collect();
+
             while !cancel_flag_thread.load(Ordering::SeqCst) {
+                // poll the files with timeout = 500ms
                 match poll(&mut poll_file_descriptors, 500) {
                     Ok(_) => {
                         for (index, pfd) in poll_file_descriptors.iter().enumerate() {
                             if pfd.revents().expect("failed to get revents from poll fd").contains(EventFlags::POLLIN) {
+                                // there is data to read
                                 files[index].read_to_end(&mut buffers_thread.write().unwrap()[index]).expect("failed to read from trace file");
                             }
                         }
@@ -281,13 +307,18 @@ impl Blktrace {
                 }
             }
         });
-        drop_cache();
-        thread::sleep(Duration::from_millis(10000));
+
+        // run the task
         task();
-        drop_cache();
+
+        // wait some time to allow residual events to accumulate
         thread::sleep(Duration::from_millis(10000));
+
+        // stop the thread
         cancel_flag.store(true, Ordering::SeqCst);
         thread.join().expect("failed to join thread");
+
+        // move the buffers out of the Arc<RwLock<_>> and into a Trace object
         Ok(Trace::new(Arc::try_unwrap(buffers).expect("failed to unwrap buffers from Arc<>").into_inner().expect("failed to get data out of rwlock")))
     }
 }

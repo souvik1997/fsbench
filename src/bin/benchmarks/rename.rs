@@ -13,7 +13,7 @@ pub struct RenameFiles {
 }
 
 impl RenameFiles {
-    pub fn run<R: IndependentSample<f64>>(config: &Configuration<R>) -> Self {
+    pub fn run<R: IndependentSample<f64>, RV: IndependentSample<f64>>(config: &Configuration<R, RV>) -> Self {
         drop_cache();
         let config_path: &Path = config.filesystem_path.as_ref();
         let base_path = PathBuf::from(config_path.join("rename"));
@@ -40,13 +40,16 @@ impl RenameFiles {
         }
 
         drop_cache();
-        let trace = config.blktrace.record_with(|| {
-            for file in &file_set_shuffled {
-                // Rename /path/to/file to /path/to/file.data
-                let new_path = file.with_extension("data");
-                rename.run(file, &new_path).expect("failed to rename file");
-            }
-        }).expect("failed to record trace");
+        let trace = config
+            .blktrace
+            .record_with(|| {
+                for file in &file_set_shuffled {
+                    // Rename /path/to/file to /path/to/file.data
+                    let new_path = file.with_extension("data");
+                    rename.run(file, &new_path).expect("failed to rename file");
+                }
+            })
+            .expect("failed to record trace");
 
         info!("Finished micro-rename:");
         let open_stats = open.stats.read().unwrap().deref().clone();
@@ -55,8 +58,15 @@ impl RenameFiles {
         info!(" - Open: {}", open_stats);
         info!(" - Close: {}", close_stats);
         info!(" - Rename: {}", rename_stats);
-        info!(" - Total: {}", open_stats.clone() + close_stats.clone() + rename_stats.clone());
-        info!(" - Blktrace recorded {} bytes on {} cpus", trace.total_bytes(), trace.num_cpus());
+        info!(
+            " - Total: {}",
+            open_stats.clone() + close_stats.clone() + rename_stats.clone()
+        );
+        info!(
+            " - Blktrace recorded {} bytes on {} cpus",
+            trace.total_bytes(),
+            trace.num_cpus()
+        );
         drop_cache();
         trace.export(&config.output_dir, &"renamefiles");
         Self {

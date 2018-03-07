@@ -2,17 +2,17 @@ extern crate chrono;
 extern crate clap;
 extern crate fern;
 extern crate fsbench;
-extern crate nix;
-extern crate tempdir;
 #[macro_use]
 extern crate log;
+extern crate nix;
 extern crate rand;
+extern crate tempdir;
 use fsbench::*;
 use rand::distributions::IndependentSample;
 use rand::distributions::normal::Normal;
+use rand::distributions::Gamma;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-
 
 mod benchmarks;
 
@@ -20,17 +20,6 @@ mod benchmarks;
 Notes:
 How large should the created files be?
 */
-
-
-pub struct Configuration<'a, R> where R: IndependentSample<f64> {
-    filesystem_path: &'a Path,
-    num_files: usize,
-    dir_width: usize,
-    file_size_distribution: R,
-    num_threads: usize,
-    blktrace: Blktrace,
-    output_dir: PathBuf,
-}
 
 fn main() {
     setup_logger().expect("failed to setup logger");
@@ -95,9 +84,13 @@ fn main() {
         "Running benchmark on {:?} with {} files",
         filesystem_path, num_files
     );
-    let blktrace = Blktrace::new(PathBuf::from(device), BlktraceConfig::default(), debugfs_path).expect("failed to setup blktrace");
+    let blktrace = Blktrace::new(
+        PathBuf::from(device),
+        BlktraceConfig::default(),
+        debugfs_path,
+    ).expect("failed to setup blktrace");
 
-    let config = Configuration {
+    let config = benchmarks::Configuration {
         filesystem_path: &filesystem_path,
         num_files: num_files,
         dir_width: dir_width,
@@ -105,9 +98,24 @@ fn main() {
         num_threads: 8,
         blktrace: blktrace,
         output_dir: output_dir,
+        varmail_config: benchmarks::VarmailConfig {
+            file_size_distribution: Gamma::new(16384 as f64, 1.5 as f64),
+            append_distribution: Gamma::new(16384 as f64, 1.5 as f64),
+            iterations: 1000,
+        },
     };
 
-    if !Command::new("mount").args(&[device, filesystem_path.to_str().expect("failed to convert path to string")]).status().expect("failed to run `mount`").success() {
+    if !Command::new("mount")
+        .args(&[
+            device,
+            filesystem_path
+                .to_str()
+                .expect("failed to convert path to string"),
+        ])
+        .status()
+        .expect("failed to run `mount`")
+        .success()
+    {
         error!("failed to mount {} on {:?}", device, filesystem_path);
         return;
     }
@@ -115,11 +123,7 @@ fn main() {
     drop_cache();
 
     info!("Running create test (end sync)..");
-    let create_end_sync = benchmarks::CreateFiles::run(
-        &config,
-        &"create_end_sync",
-        |_| false,
-    );
+    let create_end_sync = benchmarks::CreateFiles::run(&config, &"create_end_sync", |_| false);
     info!("Running create test (intermittent fsync with end sync)..");
     let create_intermittent_sync = benchmarks::CreateFiles::run(
         &config,
@@ -127,18 +131,27 @@ fn main() {
         |index| index % 10 == 0,
     );
     info!("Running create test (frequent fsync with end sync)..");
-    let create_freq_sync = benchmarks::CreateFiles::run(
-        &config,
-        &"create_frequent_fsync_with_end_sync",
-        |_| true,
-    );
+    let create_freq_sync = benchmarks::CreateFiles::run(&config, &"create_frequent_fsync_with_end_sync", |_| true);
     info!("Running rename test..");
     let rename_files = benchmarks::RenameFiles::run(&config);
     info!("Running delete test..");
     let delete_files = benchmarks::DeleteFiles::run(&config);
     info!("Running listdir test..");
     let listdir = benchmarks::ListDir::run(&config);
-    if !Command::new("umount").args(&[filesystem_path.to_str().expect("failed to convert path to string")]).status().expect("failed to run `mount`").success() {
+
+    info!("Running varmail test..");
+    let varmail = benchmarks::Varmail::run(&config);
+
+    if !Command::new("umount")
+        .args(&[
+            filesystem_path
+                .to_str()
+                .expect("failed to convert path to string"),
+        ])
+        .status()
+        .expect("failed to run `mount`")
+        .success()
+    {
         error!("failed to unmount {:?}", filesystem_path);
         return;
     }

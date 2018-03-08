@@ -282,6 +282,11 @@ impl Blktrace {
         // clone: moved into thread
         let cancel_flag_thread = cancel_flag.clone();
 
+        let mut files_thread: Vec<File> = Vec::new();
+        for f in &files {
+            files_thread.push(f.try_clone().expect("failed to clone file!"));
+        }
+
         // moved into thread
         let buffers_thread = buffers.clone();
 
@@ -297,7 +302,7 @@ impl Blktrace {
                         for (index, pfd) in poll_file_descriptors.iter().enumerate() {
                             if pfd.revents().expect("failed to get revents from poll fd").contains(EventFlags::POLLIN) {
                                 // there is data to read
-                                files[index].read_to_end(&mut buffers_thread.write().unwrap()[index]).expect("failed to read from trace file");
+                                files_thread[index].read_to_end(&mut buffers_thread.write().unwrap()[index]).expect("failed to read from trace file");
                             }
                         }
                     },
@@ -319,6 +324,10 @@ impl Blktrace {
         // stop the thread
         cancel_flag.store(true, Ordering::SeqCst);
         thread.join().expect("failed to join thread");
+
+        for (index, mut file) in files.iter().enumerate() {
+            file.read_to_end(&mut buffers.write().unwrap()[index]).expect("failed to read from trace file");
+        }
 
         // move the buffers out of the Arc<RwLock<_>> and into a Trace object
         Ok(Trace::new(Arc::try_unwrap(buffers).expect("failed to unwrap buffers from Arc<>").into_inner().expect("failed to get data out of rwlock")))

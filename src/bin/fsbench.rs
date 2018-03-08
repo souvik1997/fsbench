@@ -63,20 +63,34 @@ fn main() {
         )
         .get_matches();
 
+    // we need to be root to use blktrace and mount filesystems
     let uid = nix::unistd::geteuid();
     if !uid.is_root() {
         error!("Need to be root");
         return;
     }
 
+    // Get the command line arguments
+    // device = the block device to test (e.g. /dev/sda1, /dev/nvme0n1)
+    // We expect the device to _not_ be mounted
     let device = matches.value_of("DEVICE").expect("No device specified");
+
+    // Create a temporary directory. The device will be mounted here
     let tempdir = tempdir::TempDir::new("benchmarks").expect("failed to create temporary directory");
+    // Get the path of the temporary directory
     let filesystem_path = tempdir.path();
+
+    // All results will be written to the output directory
     let output_dir = PathBuf::from(matches.value_of("OUTPUT").unwrap_or("./output"));
+
+    // The path where debugfs is mounted. This is used for blktrace
     let debugfs_path = matches.value_of("DEBUGFS").unwrap_or("/sys/kernel/debug");
+
+    // Get the number of files to create and directory width
     let num_files = matches.value_of("NUM_FILES").map_or(100000, |s| {
         s.parse().expect("Failed to parse number of files")
     });
+
     let dir_width = matches
         .value_of("DIR_WIDTH")
         .map_or(7, |s| s.parse().expect("Failed to parse directory width"));
@@ -84,6 +98,9 @@ fn main() {
         "Running benchmark on {:?} with {} files",
         filesystem_path, num_files
     );
+
+    // Start blktrace. This will call BLKTRACESETUP and BLKTRACESTART so IO events
+    // will start showing up. However we will only consider events that occur during the benchmarks
     let blktrace = Blktrace::new(
         PathBuf::from(device),
         BlktraceConfig::default(),
@@ -105,6 +122,11 @@ fn main() {
         },
     };
 
+
+    // Mount the device at the mountpoint using the `mount` command
+    // NOTE: we could use mount(2), but that doesn't auto-detect the filesystem
+    // which means we would have to try each filesystem that the kernel supports.
+    // mount returns with exit code 0 if it succeeds.
     if !Command::new("mount")
         .args(&[
             device,
@@ -120,28 +142,46 @@ fn main() {
         return;
     }
     info!("Mounted {} at {:?}", device, filesystem_path);
+
     drop_cache();
 
+
+
+    // Standard createfiles test with no fsync
     info!("Running create test (end sync)..");
-    let create_end_sync = benchmarks::CreateFiles::run(&config, &"create_end_sync", |_| false);
-    info!("Running create test (intermittent fsync with end sync)..");
-    let create_intermittent_sync = benchmarks::CreateFiles::run(
+    let createfiles = benchmarks::CreateFiles::run(&config, &"createfiles", |_| false);
+
+    // Create files, but fsync after every 10 files
+    info!("Running create test (intermittent fsync)..");
+    let createfiles_sync = benchmarks::CreateFiles::run(
         &config,
-        &"create_intermittent_fsync_with_end_sync",
+        &"createfiles_sync",
         |index| index % 10 == 0,
     );
-    info!("Running create test (frequent fsync with end sync)..");
-    let create_freq_sync = benchmarks::CreateFiles::run(&config, &"create_frequent_fsync_with_end_sync", |_| true);
+
+    // Create files, but fsync after every file
+    info!("Running create test (frequent fsync)..");
+    let create_freq_sync = benchmarks::CreateFiles::run(&config, &"createfiles_eachsync", |_| true);
+
+    // Rename files test
     info!("Running rename test..");
     let rename_files = benchmarks::RenameFiles::run(&config);
+
+    // Delete files test
+    // NOTE: filebench has a removedirs.f workload, but this actually only calls rmdir() and _does not_
+    // recursively delete files
     info!("Running delete test..");
     let delete_files = benchmarks::DeleteFiles::run(&config);
+
+    // Listdir test
     info!("Running listdir test..");
     let listdir = benchmarks::ListDir::run(&config);
 
+    // Varmail test, based off varmail.f from filebench
     info!("Running varmail test..");
     let varmail = benchmarks::Varmail::run(&config);
 
+    // Unmount the device
     if !Command::new("umount")
         .args(&[
             filesystem_path
@@ -155,6 +195,8 @@ fn main() {
         error!("failed to unmount {:?}", filesystem_path);
         return;
     }
+
+    // Blktrace will be stopped by its destructor
 }
 
 fn setup_logger() -> Result<(), fern::InitError> {

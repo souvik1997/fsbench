@@ -16,13 +16,12 @@ pub struct CreateFiles {
 impl CreateFiles {
     pub fn run<
         N: AsRef<Path>,
-        F: Fn(usize) -> bool + marker::Sync,
         R: IndependentSample<f64> + marker::Sync,
         RV: IndependentSample<f64> + marker::Sync,
     >(
         config: &Configuration<R, RV>,
         name: &N,
-        maybe_fsync: F,
+        batch_size: Option<usize>,
     ) -> Self {
         drop_cache();
         let config_path: &Path = config.filesystem_path.as_ref();
@@ -40,28 +39,37 @@ impl CreateFiles {
         let trace = config
             .blktrace
             .record_with(|| {
-                let thread_pool = rayon::ThreadPoolBuilder::new()
-                    .num_threads(config.num_threads)
-                    .build()
-                    .unwrap();
                 // Create directory structure and files
+                let mut fd_queue = Vec::new();
+                fd_queue.reserve(batch_size.unwrap_or(0));
                 for (index, file) in file_set.iter().enumerate() {
                     if let Some(parent_path) = file.parent() {
-                        thread_pool.install(|| {
-                            mkdir(parent_path).expect("failed to construct directory tree");
-                            assert!(parent_path.is_dir());
-                            let fd = open.run(
-                                file,
-                                nix::fcntl::OFlag::O_CREAT | nix::fcntl::OFlag::O_RDWR,
-                                nix::sys::stat::Mode::S_IRWXU,
-                            ).expect("failed to create file");
+                        mkdir(parent_path).expect("failed to construct directory tree");
+                        assert!(parent_path.is_dir());
+                        let fd = open.run(
+                            file,
+                            nix::fcntl::OFlag::O_CREAT | nix::fcntl::OFlag::O_RDWR,
+                            nix::sys::stat::Mode::S_IRWXU,
+                        ).expect("failed to create file");
 
-                            if maybe_fsync(index) {
-                                fsync.run(fd).expect("failed to fsync file");
+                        if let Some(batch_size) = batch_size {
+                            if fd_queue.len() >= batch_size {
+                                for ifd in &fd_queue {
+                                    fsync.run(*ifd).expect("failed to fsync file");
+                                    close.run(*ifd).expect("failed to close file");
+                                }
+                                fd_queue.clear();
+                                fd_queue.reserve(batch_size);
                             }
+                            fd_queue.push(fd);
+                        } else {
                             close.run(fd).expect("failed to close file");
-                        });
+                        }
                     }
+                }
+                for ifd in &fd_queue {
+                    fsync.run(*ifd).expect("failed to fsync file");
+                    close.run(*ifd).expect("failed to close file");
                 }
                 sync.run();
             })

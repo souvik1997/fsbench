@@ -118,7 +118,7 @@ fn main() {
         varmail_config: benchmarks::VarmailConfig {
             file_size_distribution: Gamma::new(16384 as f64, 1.5 as f64),
             append_distribution: Gamma::new(16384 as f64, 1.5 as f64),
-            iterations: 1000,
+            iterations: 100000,
         },
     };
 
@@ -145,23 +145,21 @@ fn main() {
 
     drop_cache();
 
-
-
     // Standard createfiles test with no fsync
     info!("Running create test (end sync)..");
-    let createfiles = benchmarks::CreateFiles::run(&config, &"createfiles", |_| false);
+    let createfiles = benchmarks::CreateFiles::run(&config, &"createfiles", None);
 
     // Create files, but fsync after every 10 files
     info!("Running create test (intermittent fsync)..");
     let createfiles_sync = benchmarks::CreateFiles::run(
         &config,
         &"createfiles_sync",
-        |index| index % 10 == 0,
+        Some(10),
     );
 
     // Create files, but fsync after every file
     info!("Running create test (frequent fsync)..");
-    let create_freq_sync = benchmarks::CreateFiles::run(&config, &"createfiles_eachsync", |_| true);
+    let create_freq_sync = benchmarks::CreateFiles::run(&config, &"createfiles_eachsync", Some(1));
 
     // Rename files test
     info!("Running rename test..");
@@ -182,6 +180,7 @@ fn main() {
     let varmail = benchmarks::Varmail::run(&config);
 
     // Unmount the device
+    drop_cache();
     if !Command::new("umount")
         .args(&[
             filesystem_path

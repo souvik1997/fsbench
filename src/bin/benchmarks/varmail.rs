@@ -152,13 +152,13 @@ impl Varmail {
         let write_stats = appendfilerand2.stats.read().unwrap().deref().clone() + appendfilerand3.stats.read().unwrap().deref().clone();
         let read_stats = readfile3.stats.read().unwrap().deref().clone() + readfile4.stats.read().unwrap().deref().clone();
         let fsync_stats = fsyncfile2.stats.read().unwrap().deref().clone() + fsyncfile3.stats.read().unwrap().deref().clone();
-        println!("Completed varmail benchmark");
-        println!("Create stats: {}", create_stats);
-        println!("Delete stats: {}", delete_stats);
-        println!("Open stats: {}", open_stats);
-        println!("Write stats: {}", write_stats);
-        println!("Read stats: {}", read_stats);
-        println!("Fsync stats: {}", fsync_stats);
+        info!("Completed varmail benchmark");
+        info!("Create stats: {}", create_stats);
+        info!("Delete stats: {}", delete_stats);
+        info!("Open stats: {}", open_stats);
+        info!("Write stats: {}", write_stats);
+        info!("Read stats: {}", read_stats);
+        info!("Fsync stats: {}", fsync_stats);
         trace.export(&config.output_dir, &"varmail");
 
         Varmail {

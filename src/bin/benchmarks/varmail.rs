@@ -159,6 +159,7 @@ impl Varmail {
         info!("Write stats: {}", write_stats);
         info!("Read stats: {}", read_stats);
         info!("Fsync stats: {}", fsync_stats);
+        info!("Total: {}", create_stats.clone() + delete_stats.clone() + open_stats.clone() + write_stats.clone() + read_stats.clone() + fsync_stats.clone());
         trace.export(&config.output_dir, &"varmail");
 
         Varmail {

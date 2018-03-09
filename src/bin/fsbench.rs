@@ -118,7 +118,7 @@ fn main() {
         varmail_config: benchmarks::VarmailConfig {
             file_size_distribution: Gamma::new(16384 as f64, 1.5 as f64),
             append_distribution: Gamma::new(16384 as f64, 1.5 as f64),
-            iterations: 100000,
+            iterations: 10000,
         },
     };
 

@@ -1,7 +1,12 @@
-use super::*;
+use super::fsbench::operation::*;
+use super::fsbench::statistics::*;
+use super::fsbench::blktrace::*;
+use super::fsbench::util::*;
+use super::fsbench::fileset::*;
+use super::nix;
+use super::Configuration;
 use std::path::{Path, PathBuf};
 use rand::distributions::IndependentSample;
-use std::ops::Deref;
 use std::marker;
 
 #[allow(dead_code)]
@@ -14,11 +19,7 @@ pub struct CreateFiles {
 }
 
 impl CreateFiles {
-    pub fn run<
-        N: AsRef<Path>,
-        R: IndependentSample<f64> + marker::Sync,
-        RV: IndependentSample<f64> + marker::Sync,
-    >(
+    pub fn run<N: AsRef<Path>, R: IndependentSample<f64> + marker::Sync, RV: IndependentSample<f64> + marker::Sync>(
         config: &Configuration<R, RV>,
         name: &N,
         batch_size: Option<usize>,
@@ -34,15 +35,13 @@ impl CreateFiles {
         let mut fsync = Fsync::new();
         let mut sync = Sync::new();
 
-        let mut rng = rand::StdRng::new().unwrap();
-
         let trace = config
             .blktrace
             .record_with(|| {
                 // Create directory structure and files
                 let mut fd_queue = Vec::new();
                 fd_queue.reserve(batch_size.unwrap_or(0));
-                for (index, file) in file_set.iter().enumerate() {
+                for file in &file_set {
                     if let Some(parent_path) = file.parent() {
                         mkdir(parent_path).expect("failed to construct directory tree");
                         assert!(parent_path.is_dir());
@@ -76,10 +75,10 @@ impl CreateFiles {
             .expect("failed to record trace");
 
         info!("Finished micro-create:");
-        let open_stats = open.stats.read().unwrap().deref().clone();
-        let close_stats = close.stats.read().unwrap().deref().clone();
-        let fsync_stats = fsync.stats.read().unwrap().deref().clone();
-        let sync_stats = sync.stats.read().unwrap().deref().clone();
+        let open_stats = open.get_stats();
+        let close_stats = close.get_stats();
+        let fsync_stats = fsync.get_stats();
+        let sync_stats = sync.get_stats();
         info!(" - Open: {}", open_stats);
         info!(" - Close: {}", close_stats);
         info!(" - Fsync: {}", fsync_stats);

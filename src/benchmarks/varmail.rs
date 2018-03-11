@@ -1,9 +1,16 @@
-use super::*;
+use super::nix;
+use super::rand;
+use super::rayon;
+use super::fsbench::operation::*;
+use super::fsbench::statistics::*;
+use super::fsbench::blktrace::*;
+use super::fsbench::util::*;
+use super::fsbench::fileset::*;
+use super::Configuration;
 use std::path::{Path, PathBuf};
 use rand::distributions::IndependentSample;
 use rand::Rng;
 use std::cmp::min;
-use std::ops::Deref;
 use std::marker;
 
 #[allow(dead_code)]
@@ -146,12 +153,12 @@ impl Varmail {
             })
             .expect("failed to record trace");
 
-        let create_stats = createfile2.stats.read().unwrap().deref().clone() + createfile2_write.stats.read().unwrap().deref().clone();
-        let delete_stats = deletefile1.stats.read().unwrap().deref().clone();
-        let open_stats = openfile3.stats.read().unwrap().deref().clone() + openfile4.stats.read().unwrap().deref().clone();
-        let write_stats = appendfilerand2.stats.read().unwrap().deref().clone() + appendfilerand3.stats.read().unwrap().deref().clone();
-        let read_stats = readfile3.stats.read().unwrap().deref().clone() + readfile4.stats.read().unwrap().deref().clone();
-        let fsync_stats = fsyncfile2.stats.read().unwrap().deref().clone() + fsyncfile3.stats.read().unwrap().deref().clone();
+        let create_stats = createfile2.get_stats() + createfile2_write.get_stats();
+        let delete_stats = deletefile1.get_stats();
+        let open_stats = openfile3.get_stats() + openfile4.get_stats();
+        let write_stats = appendfilerand2.get_stats() + appendfilerand3.get_stats();
+        let read_stats = readfile3.get_stats() + readfile4.get_stats();
+        let fsync_stats = fsyncfile2.get_stats() + fsyncfile3.get_stats();
         info!("Completed varmail benchmark");
         info!("Create stats: {}", create_stats);
         info!("Delete stats: {}", delete_stats);
@@ -159,7 +166,11 @@ impl Varmail {
         info!("Write stats: {}", write_stats);
         info!("Read stats: {}", read_stats);
         info!("Fsync stats: {}", fsync_stats);
-        info!("Total: {}", create_stats.clone() + delete_stats.clone() + open_stats.clone() + write_stats.clone() + read_stats.clone() + fsync_stats.clone());
+        info!(
+            "Total: {}",
+            create_stats.clone() + delete_stats.clone() + open_stats.clone() + write_stats.clone() + read_stats.clone()
+                + fsync_stats.clone()
+        );
         trace.export(&config.output_dir, &"varmail");
 
         Varmail {

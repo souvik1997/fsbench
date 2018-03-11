@@ -9,12 +9,15 @@ use std::os::unix::io::RawFd;
 use std::time::Instant;
 use std::path::Path;
 use std::fs;
-use std::fmt;
 use std::io;
 use std::sync::RwLock;
 
+pub trait Operation {
+    fn get_stats(&self) -> Stats;
+}
+
 pub struct Open {
-    pub stats: RwLock<Stats>,
+    stats: RwLock<Stats>,
 }
 
 impl Open {
@@ -24,12 +27,7 @@ impl Open {
         }
     }
 
-    pub fn run<P: ?Sized + nix::NixPath>(
-        &mut self,
-        path: &P,
-        oflag: OFlag,
-        mode: Mode,
-    ) -> nix::Result<RawFd> {
+    pub fn run<P: ?Sized + nix::NixPath>(&mut self, path: &P, oflag: OFlag, mode: Mode) -> nix::Result<RawFd> {
         let mut stats = self.stats.write().unwrap();
         let start = Instant::now();
         match nix::fcntl::open(path, oflag, mode) {
@@ -42,8 +40,14 @@ impl Open {
     }
 }
 
+impl Operation for Open {
+    fn get_stats(&self) -> Stats {
+        self.stats.read().unwrap().clone()
+    }
+}
+
 pub struct Close {
-    pub stats: RwLock<Stats>,
+    stats: RwLock<Stats>,
 }
 
 impl Close {
@@ -66,8 +70,14 @@ impl Close {
     }
 }
 
+impl Operation for Close {
+    fn get_stats(&self) -> Stats {
+        self.stats.read().unwrap().clone()
+    }
+}
+
 pub struct Fsync {
-    pub stats: RwLock<Stats>,
+    stats: RwLock<Stats>,
 }
 
 impl Fsync {
@@ -90,8 +100,14 @@ impl Fsync {
     }
 }
 
+impl Operation for Fsync {
+    fn get_stats(&self) -> Stats {
+        self.stats.read().unwrap().clone()
+    }
+}
+
 pub struct Sync {
-    pub stats: RwLock<Stats>,
+    stats: RwLock<Stats>,
 }
 
 impl Sync {
@@ -109,8 +125,14 @@ impl Sync {
     }
 }
 
+impl Operation for Sync {
+    fn get_stats(&self) -> Stats {
+        self.stats.read().unwrap().clone()
+    }
+}
+
 pub struct Read {
-    pub stats: RwLock<Stats>,
+    stats: RwLock<Stats>,
 }
 
 impl Read {
@@ -133,8 +155,14 @@ impl Read {
     }
 }
 
+impl Operation for Read {
+    fn get_stats(&self) -> Stats {
+        self.stats.read().unwrap().clone()
+    }
+}
+
 pub struct Write {
-    pub stats: RwLock<Stats>,
+    stats: RwLock<Stats>,
 }
 
 impl Write {
@@ -157,8 +185,14 @@ impl Write {
     }
 }
 
+impl Operation for Write {
+    fn get_stats(&self) -> Stats {
+        self.stats.read().unwrap().clone()
+    }
+}
+
 pub struct Unlink {
-    pub stats: RwLock<Stats>,
+    stats: RwLock<Stats>,
 }
 
 impl Unlink {
@@ -181,8 +215,14 @@ impl Unlink {
     }
 }
 
+impl Operation for Unlink {
+    fn get_stats(&self) -> Stats {
+        self.stats.read().unwrap().clone()
+    }
+}
+
 pub struct Rename {
-    pub stats: RwLock<Stats>,
+    stats: RwLock<Stats>,
 }
 
 impl Rename {
@@ -192,11 +232,7 @@ impl Rename {
         }
     }
 
-    pub fn run<P: AsRef<Path>, Q: AsRef<Path>>(
-        &mut self,
-        from_path: &P,
-        to_path: &Q,
-    ) -> io::Result<()> {
+    pub fn run<P: AsRef<Path>, Q: AsRef<Path>>(&mut self, from_path: &P, to_path: &Q) -> io::Result<()> {
         let mut stats = self.stats.write().unwrap();
         let start = Instant::now();
         match fs::rename(from_path, to_path) {
@@ -209,8 +245,14 @@ impl Rename {
     }
 }
 
+impl Operation for Rename {
+    fn get_stats(&self) -> Stats {
+        self.stats.read().unwrap().clone()
+    }
+}
+
 pub struct ReadDir {
-    pub stats: RwLock<Stats>,
+    stats: RwLock<Stats>,
 }
 
 impl ReadDir {
@@ -233,5 +275,11 @@ impl ReadDir {
         }
         stats.record(start.elapsed(), bytes);
         Ok(())
+    }
+}
+
+impl Operation for ReadDir {
+    fn get_stats(&self) -> Stats {
+        self.stats.read().unwrap().clone()
     }
 }

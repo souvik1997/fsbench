@@ -1,27 +1,23 @@
 extern crate chrono;
 extern crate clap;
 extern crate fern;
-extern crate fsbench;
 #[macro_use]
 extern crate log;
 extern crate nix;
 extern crate rand;
+extern crate rayon;
 extern crate tempdir;
-use fsbench::*;
-use rand::distributions::IndependentSample;
-use rand::distributions::normal::Normal;
-use rand::distributions::Gamma;
-use std::path::{Path, PathBuf};
-use std::process::Command;
 
 mod benchmarks;
-
-/*
-Notes:
-How large should the created files be?
-*/
+mod fsbench;
 
 fn main() {
+    use fsbench::blktrace::*;
+    use fsbench::util::drop_cache;
+    use rand::distributions::normal::Normal;
+    use rand::distributions::Gamma;
+    use std::path::PathBuf;
+    use std::process::Command;
     setup_logger().expect("failed to setup logger");
     let matches = clap::App::new("Filesystem Benchmark")
         .version("0.1")
@@ -122,7 +118,6 @@ fn main() {
         },
     };
 
-
     // Mount the device at the mountpoint using the `mount` command
     // NOTE: we could use mount(2), but that doesn't auto-detect the filesystem
     // which means we would have to try each filesystem that the kernel supports.
@@ -147,37 +142,33 @@ fn main() {
 
     // Standard createfiles test with no fsync
     info!("Running create test (end sync)..");
-    let createfiles = benchmarks::CreateFiles::run(&config, &"createfiles", None);
+    let _createfiles = benchmarks::CreateFiles::run(&config, &"createfiles", None);
 
     // Create files, but fsync after every 10 files
     info!("Running create test (intermittent fsync)..");
-    let createfiles_sync = benchmarks::CreateFiles::run(
-        &config,
-        &"createfiles_sync",
-        Some(10),
-    );
+    let _createfiles_sync = benchmarks::CreateFiles::run(&config, &"createfiles_sync", Some(10));
 
     // Create files, but fsync after every file
     info!("Running create test (frequent fsync)..");
-    let create_freq_sync = benchmarks::CreateFiles::run(&config, &"createfiles_eachsync", Some(1));
+    let _create_freq_sync = benchmarks::CreateFiles::run(&config, &"createfiles_eachsync", Some(1));
 
     // Rename files test
     info!("Running rename test..");
-    let rename_files = benchmarks::RenameFiles::run(&config);
+    let _rename_files = benchmarks::RenameFiles::run(&config);
 
     // Delete files test
     // NOTE: filebench has a removedirs.f workload, but this actually only calls rmdir() and _does not_
     // recursively delete files
     info!("Running delete test..");
-    let delete_files = benchmarks::DeleteFiles::run(&config);
+    let _delete_files = benchmarks::DeleteFiles::run(&config);
 
     // Listdir test
     info!("Running listdir test..");
-    let listdir = benchmarks::ListDir::run(&config);
+    let _listdir = benchmarks::ListDir::run(&config);
 
     // Varmail test, based off varmail.f from filebench
     info!("Running varmail test..");
-    let varmail = benchmarks::Varmail::run(&config);
+    let _varmail = benchmarks::Varmail::run(&config);
 
     // Unmount the device
     drop_cache();

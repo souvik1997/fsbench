@@ -16,7 +16,9 @@ impl Stats {
     }
 
     pub fn total_latency(&self) -> Duration {
-        return self.latency.iter().fold(Duration::new(0, 0), |acc, s| acc + *s);
+        return self.latency
+            .iter()
+            .fold(Duration::new(0, 0), |acc, s| acc + *s);
     }
 
     pub fn total_bytes(&self) -> usize {
@@ -53,9 +55,8 @@ impl fmt::Display for Stats {
             (total_bytes as f64) / (num_ops as f64)
         )?;
 
-        let ops_per_second = (num_ops as f64)
-            / (total_latency.as_secs() as f64
-                + (total_latency.subsec_nanos() as f64 / 1_000_000_000 as f64));
+        let ops_per_second =
+            (num_ops as f64) / (total_latency.as_secs() as f64 + (total_latency.subsec_nanos() as f64 / 1_000_000_000 as f64));
         write!(f, " - Operations/Second = {}\n", ops_per_second)?;
         Ok(())
     }

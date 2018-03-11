@@ -1,3 +1,7 @@
+use std::path::Path;
+use std::path::PathBuf;
+use rand::distributions::IndependentSample;
+
 use super::*;
 pub mod create;
 pub use self::create::*;
@@ -20,7 +24,7 @@ where
     pub dir_width: usize,
     pub file_size_distribution: R,
     pub num_threads: usize,
-    pub blktrace: Blktrace,
+    pub blktrace: fsbench::blktrace::Blktrace,
     pub output_dir: PathBuf,
     pub varmail_config: VarmailConfig<RV>,
 }

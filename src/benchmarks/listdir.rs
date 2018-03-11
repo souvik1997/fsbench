@@ -1,8 +1,14 @@
-use super::*;
+use super::fsbench::operation::*;
+use super::fsbench::statistics::*;
+use super::fsbench::blktrace::*;
+use super::fsbench::util::*;
+use super::fsbench::fileset::*;
+use super::nix;
+use super::Configuration;
+use super::rand;
 use std::path::{Path, PathBuf};
 use rand::Rng;
 use rand::distributions::IndependentSample;
-use std::ops::Deref;
 
 #[allow(dead_code)]
 pub struct ListDir {
@@ -56,9 +62,9 @@ impl ListDir {
             })
             .expect("failed to record trace");
 
-        let open_stats = open.stats.read().unwrap().deref().clone();
-        let close_stats = close.stats.read().unwrap().deref().clone();
-        let readdir_stats = readdir.stats.read().unwrap().deref().clone();
+        let open_stats = open.get_stats();
+        let close_stats = close.get_stats();
+        let readdir_stats = readdir.get_stats();
         info!(" - Open: {}", open_stats);
         info!(" - Close: {}", close_stats);
         info!(" - Readdir: {}", readdir_stats);

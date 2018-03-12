@@ -6,15 +6,15 @@ use std::io::prelude::*;
 use std::fs::OpenOptions;
 
 // Recursively constructs a directory tree
-pub fn mkdir(path: &Path) -> io::Result<()> {
-    let parent = path.parent();
+pub fn mkdir<P: AsRef<Path>>(path: P) -> io::Result<()> {
+    let parent = path.as_ref().parent();
     match parent {
         Some(parent) => {
             if !parent.is_dir() {
                 mkdir(parent)?
             }
-            if !path.is_dir() {
-                fs::create_dir(path)
+            if !path.as_ref().is_dir() {
+                fs::create_dir(&path)
             } else {
                 Ok(())
             }

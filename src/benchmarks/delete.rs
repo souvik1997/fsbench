@@ -4,24 +4,55 @@ use super::fsbench::blktrace::*;
 use super::fsbench::util::*;
 use super::fsbench::fileset::*;
 use super::nix;
-use super::Configuration;
-use super::rand;
-use std::path::{Path, PathBuf};
-use rand::Rng;
-use rand::distributions::IndependentSample;
+use super::serde_json;
+use super::BaseConfiguration;
+use std::io;
 
-#[allow(dead_code)]
-pub struct DeleteFiles {
+use std::path::{Path, PathBuf};
+
+pub struct DeleteFiles<'a> {
     open: Stats,
     close: Stats,
     unlink: Stats,
     trace: Trace,
+    base_config: &'a BaseConfiguration<'a>,
+    deletefiles_config: &'a DeleteFilesConfig,
 }
 
-impl DeleteFiles {
-    pub fn run<R: IndependentSample<f64>, RV: IndependentSample<f64>>(config: &Configuration<R, RV>) -> Self {
+#[derive(Serialize, Deserialize)]
+pub struct DeleteFilesConfig {
+    num_files: usize,
+    dir_width: usize,
+}
+
+use std::error::Error;
+
+impl DeleteFilesConfig {
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Box<Error>> {
+        use super::serde_json;
+        use std::fs::File;
+        let file = File::open(path)?;
+        let c = serde_json::from_reader(file)?;
+        Ok(c)
+    }
+}
+
+impl Default for DeleteFilesConfig {
+    fn default() -> Self {
+        Self {
+            num_files: super::DEFAULT_NUM_FILES,
+            dir_width: super::DEFAULT_DIR_WIDTH,
+        }
+    }
+}
+
+impl<'a> DeleteFiles<'a> {
+    pub fn run(base_config: &'a BaseConfiguration, config: &'a DeleteFilesConfig) -> Self {
+        use super::rand;
+        use rand::Rng;
+
         drop_cache();
-        let config_path: &Path = config.filesystem_path.as_ref();
+        let config_path: &Path = base_config.filesystem_path.as_ref();
         let base_path = PathBuf::from(config_path.join("delete"));
         let file_set: Vec<PathBuf> = FileSet::new(config.num_files, &base_path, config.dir_width)
             .into_iter()
@@ -47,7 +78,7 @@ impl DeleteFiles {
 
         drop_cache();
 
-        let trace = config
+        let trace = base_config
             .blktrace
             .record_with(|| {
                 for file in &file_set_shuffled {
@@ -73,12 +104,27 @@ impl DeleteFiles {
             trace.num_cpus()
         );
         drop_cache();
-        trace.export(&config.output_dir, &"deletefiles");
         Self {
             open: open_stats,
             close: close_stats,
             unlink: unlink_stats,
             trace: trace,
+            base_config: base_config,
+            deletefiles_config: config,
         }
+    }
+
+    pub fn export(&self) -> io::Result<()> {
+        let path = self.base_config.output_dir.join("deletefiles");
+        use std::fs::File;
+        mkdir(&path)?;
+        serde_json::to_writer(File::create(path.join("open.json"))?, &self.open)?;
+        serde_json::to_writer(File::create(path.join("close.json"))?, &self.close)?;
+        serde_json::to_writer(File::create(path.join("unlink.json"))?, &self.unlink)?;
+        serde_json::to_writer(
+            File::create(path.join("config.json"))?,
+            &self.deletefiles_config,
+        )?;
+        self.trace.export(&path, &"blktrace")
     }
 }

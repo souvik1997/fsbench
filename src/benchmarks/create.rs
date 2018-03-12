@@ -4,13 +4,195 @@ use super::fsbench::blktrace::*;
 use super::fsbench::util::*;
 use super::fsbench::fileset::*;
 use super::nix;
-use super::Configuration;
+use super::BaseConfiguration;
+use super::serde_json;
+use std::error::Error;
 use std::path::{Path, PathBuf};
-use rand::distributions::IndependentSample;
-use std::marker;
+use std::io;
 
-#[allow(dead_code)]
-pub struct CreateFiles {
+#[derive(Serialize, Deserialize)]
+pub struct CreateFilesConfig {
+    num_files: usize,
+    dir_width: usize,
+}
+
+impl CreateFilesConfig {
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Box<Error>> {
+        use std::fs::File;
+        let file = File::open(path)?;
+        let c = serde_json::from_reader(file)?;
+        Ok(c)
+    }
+}
+
+impl Default for CreateFilesConfig {
+    fn default() -> Self {
+        Self {
+            num_files: super::DEFAULT_NUM_FILES,
+            dir_width: super::DEFAULT_DIR_WIDTH,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CreateFilesBatchSyncConfig {
+    num_files: usize,
+    dir_width: usize,
+    batch_size: usize,
+}
+
+impl CreateFilesBatchSyncConfig {
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Box<Error>> {
+        use std::fs::File;
+        let file = File::open(path)?;
+        let c = serde_json::from_reader(file)?;
+        Ok(c)
+    }
+}
+
+impl Default for CreateFilesBatchSyncConfig {
+    fn default() -> Self {
+        Self {
+            num_files: super::DEFAULT_NUM_FILES,
+            dir_width: super::DEFAULT_DIR_WIDTH,
+            batch_size: 10,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CreateFilesEachSyncConfig {
+    num_files: usize,
+    dir_width: usize,
+}
+
+impl CreateFilesEachSyncConfig {
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Box<Error>> {
+        use std::fs::File;
+        let file = File::open(path)?;
+        let c = serde_json::from_reader(file)?;
+        Ok(c)
+    }
+}
+
+impl Default for CreateFilesEachSyncConfig {
+    fn default() -> Self {
+        Self {
+            num_files: super::DEFAULT_NUM_FILES,
+            dir_width: super::DEFAULT_DIR_WIDTH,
+        }
+    }
+}
+
+pub struct CreateFiles<'a> {
+    data: CreateFilesShared,
+    base_config: &'a BaseConfiguration<'a>,
+    createfiles_config: &'a CreateFilesConfig,
+}
+
+pub struct CreateFilesBatchSync<'a> {
+    data: CreateFilesShared,
+    base_config: &'a BaseConfiguration<'a>,
+    createfiles_config: &'a CreateFilesBatchSyncConfig,
+}
+
+pub struct CreateFilesEachSync<'a> {
+    data: CreateFilesShared,
+    base_config: &'a BaseConfiguration<'a>,
+    createfiles_config: &'a CreateFilesEachSyncConfig,
+}
+
+impl<'a> CreateFiles<'a> {
+    pub fn run(base_config: &'a BaseConfiguration, createfiles_config: &'a CreateFilesConfig) -> Self {
+        let base_path = base_config.filesystem_path.join("createfiles");
+        Self {
+            data: CreateFilesShared::run(
+                FileSet::new(
+                    createfiles_config.num_files,
+                    &base_path,
+                    createfiles_config.dir_width,
+                ),
+                &base_config.blktrace,
+                None,
+            ),
+            base_config: base_config,
+            createfiles_config: createfiles_config,
+        }
+    }
+
+    pub fn export(&self) -> io::Result<()> {
+        use std::fs::File;
+        let path = self.base_config.output_dir.join("createfiles");
+        mkdir(&path)?;
+        serde_json::to_writer(
+            File::create(path.join("config.json"))?,
+            &self.createfiles_config,
+        )?;
+        self.data.export(path)
+    }
+}
+
+impl<'a> CreateFilesBatchSync<'a> {
+    pub fn run(base_config: &'a BaseConfiguration, createfiles_config: &'a CreateFilesBatchSyncConfig) -> Self {
+        let base_path = base_config.filesystem_path.join("createfiles_batchsync");
+        Self {
+            data: CreateFilesShared::run(
+                FileSet::new(
+                    createfiles_config.num_files,
+                    &base_path,
+                    createfiles_config.dir_width,
+                ),
+                &base_config.blktrace,
+                Some(createfiles_config.batch_size),
+            ),
+            base_config: base_config,
+            createfiles_config: createfiles_config,
+        }
+    }
+
+    pub fn export(&self) -> io::Result<()> {
+        use std::fs::File;
+        let path = self.base_config.output_dir.join("createfiles_batchsync");
+        mkdir(&path)?;
+        serde_json::to_writer(
+            File::create(path.join("config.json"))?,
+            &self.createfiles_config,
+        )?;
+        self.data.export(path)
+    }
+}
+
+impl<'a> CreateFilesEachSync<'a> {
+    pub fn run(base_config: &'a BaseConfiguration, createfiles_config: &'a CreateFilesEachSyncConfig) -> Self {
+        let base_path = base_config.filesystem_path.join("createfiles_eachsync");
+        Self {
+            data: CreateFilesShared::run(
+                FileSet::new(
+                    createfiles_config.num_files,
+                    &base_path,
+                    createfiles_config.dir_width,
+                ),
+                &base_config.blktrace,
+                Some(0),
+            ),
+            base_config: base_config,
+            createfiles_config: createfiles_config,
+        }
+    }
+
+    pub fn export(&self) -> io::Result<()> {
+        use std::fs::File;
+        let path = self.base_config.output_dir.join("createfiles_eachsync");
+        mkdir(&path)?;
+        serde_json::to_writer(
+            File::create(path.join("config.json"))?,
+            &self.createfiles_config,
+        )?;
+        self.data.export(path)
+    }
+}
+
+struct CreateFilesShared {
     open: Stats,
     close: Stats,
     fsync: Stats,
@@ -18,25 +200,16 @@ pub struct CreateFiles {
     trace: Trace,
 }
 
-impl CreateFiles {
-    pub fn run<N: AsRef<Path>, R: IndependentSample<f64> + marker::Sync, RV: IndependentSample<f64> + marker::Sync>(
-        config: &Configuration<R, RV>,
-        name: &N,
-        batch_size: Option<usize>,
-    ) -> Self {
+impl CreateFilesShared {
+    pub fn run(file_set: FileSet, blktrace: &Blktrace, batch_size: Option<usize>) -> Self {
         drop_cache();
-        let config_path: &Path = config.filesystem_path.as_ref();
-        let base_path = PathBuf::from(config_path.join(name));
-        let file_set: Vec<PathBuf> = FileSet::new(config.num_files, &base_path, config.dir_width)
-            .into_iter()
-            .collect();
+        let file_set: Vec<PathBuf> = file_set.into_iter().collect();
         let mut open = Open::new();
         let mut close = Close::new();
         let mut fsync = Fsync::new();
         let mut sync = Sync::new();
 
-        let trace = config
-            .blktrace
+        let trace = blktrace
             .record_with(|| {
                 // Create directory structure and files
                 let mut fd_queue = Vec::new();
@@ -93,7 +266,6 @@ impl CreateFiles {
             trace.num_cpus()
         );
         drop_cache();
-        trace.export(&config.output_dir, name);
         Self {
             open: open_stats,
             close: close_stats,
@@ -101,5 +273,14 @@ impl CreateFiles {
             sync: sync_stats,
             trace: trace,
         }
+    }
+
+    fn export<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
+        use std::fs::File;
+        serde_json::to_writer(File::create(path.as_ref().join("open.json"))?, &self.open)?;
+        serde_json::to_writer(File::create(path.as_ref().join("close.json"))?, &self.close)?;
+        serde_json::to_writer(File::create(path.as_ref().join("fsync.json"))?, &self.fsync)?;
+        serde_json::to_writer(File::create(path.as_ref().join("sync.json"))?, &self.sync)?;
+        self.trace.export(&path, &"blktrace")
     }
 }

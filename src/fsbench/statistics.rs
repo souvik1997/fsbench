@@ -1,7 +1,7 @@
 use std::time::Duration;
 use std::fmt;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct Stats {
     latency: Vec<Duration>,
     bytes: Vec<usize>,

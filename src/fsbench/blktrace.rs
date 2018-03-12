@@ -10,6 +10,9 @@ mod blktrace_api {
     use std::mem;
 
     /*
+
+    The data that is passed to the kernel:
+
     struct blk_user_trace_setup {
         char name[32];			// output
         __u16 act_mask;			// input
@@ -133,6 +136,7 @@ impl Trace {
     pub fn export<P: AsRef<Path>, Q: AsRef<Path>>(&self, path: &P, prefix: &Q) -> io::Result<()> {
         use std::io::Write;
         use std::fs::File;
+        use std::process::Command;
         use super::util::mkdir;
         mkdir(path.as_ref())?;
         for (index, buf) in self.data.iter().enumerate() {
@@ -151,7 +155,32 @@ impl Trace {
                 }
             }
         }
-        Ok(())
+        let blkparse = Command::new("blkparse")
+            .args(&[
+                path.as_ref()
+                    .join(prefix)
+                    .to_str()
+                    .expect("failed to convert path to string"),
+            ])
+            .output();
+        match blkparse {
+            Ok(blkparse_output) => {
+                let mut filename = PathBuf::new();
+                filename.set_file_name(prefix.as_ref());
+                filename.set_extension("txt");
+                let mut full_filename = PathBuf::new();
+                full_filename.push(path);
+                full_filename.push(filename);
+                match File::create(full_filename) {
+                    Ok(mut file) => file.write_all(&blkparse_output.stdout),
+                    Err(e) => Err(e),
+                }
+            }
+            Err(_) => {
+                // Ignore errors caused by running blkparse
+                Ok(())
+            }
+        }
     }
 }
 

@@ -4,24 +4,53 @@ use super::fsbench::blktrace::*;
 use super::fsbench::util::*;
 use super::fsbench::fileset::*;
 use super::nix;
-use super::Configuration;
+use super::BaseConfiguration;
+use super::serde_json;
 use super::rand;
 use std::path::{Path, PathBuf};
 use rand::Rng;
-use rand::distributions::IndependentSample;
+use std::io;
 
-#[allow(dead_code)]
-pub struct RenameFiles {
+pub struct RenameFiles<'a> {
     open: Stats,
     close: Stats,
     rename: Stats,
     trace: Trace,
+    base_config: &'a BaseConfiguration<'a>,
+    renamefiles_config: &'a RenameFilesConfig,
 }
 
-impl RenameFiles {
-    pub fn run<R: IndependentSample<f64>, RV: IndependentSample<f64>>(config: &Configuration<R, RV>) -> Self {
+#[derive(Serialize, Deserialize)]
+pub struct RenameFilesConfig {
+    num_files: usize,
+    dir_width: usize,
+}
+
+use std::error::Error;
+
+impl RenameFilesConfig {
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Box<Error>> {
+        use super::serde_json;
+        use std::fs::File;
+        let file = File::open(path)?;
+        let c = serde_json::from_reader(file)?;
+        Ok(c)
+    }
+}
+
+impl Default for RenameFilesConfig {
+    fn default() -> Self {
+        Self {
+            num_files: super::DEFAULT_NUM_FILES,
+            dir_width: super::DEFAULT_DIR_WIDTH,
+        }
+    }
+}
+
+impl<'a> RenameFiles<'a> {
+    pub fn run(base_config: &'a BaseConfiguration, config: &'a RenameFilesConfig) -> Self {
         drop_cache();
-        let config_path: &Path = config.filesystem_path.as_ref();
+        let config_path: &Path = base_config.filesystem_path.as_ref();
         let base_path = PathBuf::from(config_path.join("rename"));
         let file_set: Vec<PathBuf> = FileSet::new(config.num_files, &base_path, config.dir_width)
             .into_iter()
@@ -46,7 +75,7 @@ impl RenameFiles {
         }
 
         drop_cache();
-        let trace = config
+        let trace = base_config
             .blktrace
             .record_with(|| {
                 for file in &file_set_shuffled {
@@ -74,12 +103,27 @@ impl RenameFiles {
             trace.num_cpus()
         );
         drop_cache();
-        trace.export(&config.output_dir, &"renamefiles");
         Self {
             open: open_stats,
             close: close_stats,
             rename: rename_stats,
             trace: trace,
+            base_config: base_config,
+            renamefiles_config: config,
         }
+    }
+
+    pub fn export(&self) -> io::Result<()> {
+        let path = self.base_config.output_dir.join("renamefiles");
+        use std::fs::File;
+        mkdir(&path)?;
+        serde_json::to_writer(File::create(path.join("open.json"))?, &self.open)?;
+        serde_json::to_writer(File::create(path.join("close.json"))?, &self.close)?;
+        serde_json::to_writer(File::create(path.join("rename.json"))?, &self.rename)?;
+        serde_json::to_writer(
+            File::create(path.join("config.json"))?,
+            &self.renamefiles_config,
+        )?;
+        self.trace.export(&path, &"blktrace")
     }
 }

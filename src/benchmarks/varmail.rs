@@ -6,15 +6,15 @@ use super::fsbench::statistics::*;
 use super::fsbench::blktrace::*;
 use super::fsbench::util::*;
 use super::fsbench::fileset::*;
-use super::Configuration;
+use super::BaseConfiguration;
+use super::serde_json;
+use std::io;
 use std::path::{Path, PathBuf};
-use rand::distributions::IndependentSample;
+use rand::distributions::Gamma;
 use rand::Rng;
 use std::cmp::min;
-use std::marker;
 
-#[allow(dead_code)]
-pub struct Varmail {
+pub struct Varmail<'a> {
     create: Stats,
     delete: Stats,
     open: Stats,
@@ -22,24 +22,57 @@ pub struct Varmail {
     read: Stats,
     fsync: Stats,
     trace: Trace,
+    base_config: &'a BaseConfiguration<'a>,
+    varmail_config: &'a VarmailConfig,
 }
 
-pub struct VarmailConfig<R>
-where
-    R: IndependentSample<f64>,
-{
-    pub file_size_distribution: R,
-    pub append_distribution: R,
+#[derive(Serialize, Deserialize)]
+pub struct VarmailConfig {
+    pub num_files: usize,
+    pub dir_width: usize,
+    pub file_size_distribution: (f64, f64),
+    pub append_distribution: (f64, f64),
     pub iterations: usize,
+    pub num_threads: usize,
 }
 
-impl Varmail {
-    pub fn run<R: IndependentSample<f64> + marker::Sync, RV: IndependentSample<f64> + marker::Sync>(config: &Configuration<R, RV>) -> Self {
+use std::error::Error;
+
+impl VarmailConfig {
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Box<Error>> {
+        use super::serde_json;
+        use std::fs::File;
+        let file = File::open(path)?;
+        let c = serde_json::from_reader(file)?;
+        Ok(c)
+    }
+}
+
+impl Default for VarmailConfig {
+    fn default() -> Self {
+        Self {
+            num_files: super::DEFAULT_NUM_FILES,
+            dir_width: super::DEFAULT_DIR_WIDTH,
+            file_size_distribution: (10000.0, 3000.0),
+            append_distribution: (10000.0, 3000.0),
+            iterations: 50000,
+            num_threads: 4,
+        }
+    }
+}
+
+impl<'a> Varmail<'a> {
+    pub fn run(base_config: &'a BaseConfiguration, varmail_config: &'a VarmailConfig) -> Self {
+        use rand::distributions::IndependentSample;
+
         drop_cache();
-        let config_path: &Path = config.filesystem_path.as_ref();
+        let config_path: &Path = base_config.filesystem_path.as_ref();
         let base_path = PathBuf::from(config_path.join("varmail"));
-        let file_set: Vec<PathBuf> = FileSet::new(config.num_files, &base_path, config.dir_width)
-            .into_iter()
+        let file_set: Vec<PathBuf> = FileSet::new(
+            varmail_config.num_files,
+            &base_path,
+            varmail_config.dir_width,
+        ).into_iter()
             .collect();
         let mut createfile2 = Open::new();
         let mut createfile2_write = Write::new();
@@ -59,14 +92,23 @@ impl Varmail {
         let zero_buffer = [0; 24000];
         let mut read_buffer = [0; 1_000_000];
 
-        let trace = config
+        let file_size_distribution = Gamma::new(
+            varmail_config.file_size_distribution.0,
+            varmail_config.file_size_distribution.1,
+        );
+        let append_distribution = Gamma::new(
+            varmail_config.append_distribution.0,
+            varmail_config.append_distribution.1,
+        );
+
+        let trace = base_config
             .blktrace
             .record_with(|| {
                 let thread_pool = rayon::ThreadPoolBuilder::new()
-                    .num_threads(config.num_threads)
+                    .num_threads(varmail_config.num_threads)
                     .build()
                     .unwrap();
-                for _ in 0..config.varmail_config.iterations {
+                for _ in 0..varmail_config.iterations {
                     let mut file: &PathBuf = rand::thread_rng()
                         .choose(&file_set)
                         .expect("failed to select a file");
@@ -83,20 +125,14 @@ impl Varmail {
                             )
                             .expect("failed to create file in createfile2");
                         let mut filesize = min(
-                            config
-                                .varmail_config
-                                .file_size_distribution
-                                .ind_sample(&mut rand::thread_rng()) as usize,
+                            file_size_distribution.ind_sample(&mut rand::thread_rng()) as usize,
                             zero_buffer.len(),
                         );
                         createfile2_write
                             .run(fd1, &zero_buffer[..filesize])
                             .expect("failed to append to created file");
                         let appendsize = min(
-                            config
-                                .varmail_config
-                                .append_distribution
-                                .ind_sample(&mut rand::thread_rng()) as usize,
+                            append_distribution.ind_sample(&mut rand::thread_rng()) as usize,
                             zero_buffer.len(),
                         );
                         appendfilerand2
@@ -121,10 +157,7 @@ impl Varmail {
                             .expect("failed to read file");
                         nix::unistd::lseek(fd1, 0, nix::unistd::Whence::SeekEnd).expect("failed to seek to end of file");
                         filesize = min(
-                            config
-                                .varmail_config
-                                .file_size_distribution
-                                .ind_sample(&mut rand::thread_rng()) as usize,
+                            file_size_distribution.ind_sample(&mut rand::thread_rng()) as usize,
                             zero_buffer.len(),
                         );
                         appendfilerand3
@@ -171,7 +204,6 @@ impl Varmail {
             create_stats.clone() + delete_stats.clone() + open_stats.clone() + write_stats.clone() + read_stats.clone()
                 + fsync_stats.clone()
         );
-        trace.export(&config.output_dir, &"varmail");
 
         Varmail {
             create: create_stats,
@@ -181,6 +213,25 @@ impl Varmail {
             read: read_stats,
             fsync: fsync_stats,
             trace: trace,
+            base_config: base_config,
+            varmail_config: varmail_config,
         }
+    }
+
+    pub fn export(&self) -> io::Result<()> {
+        let path = self.base_config.output_dir.join("varmail");
+        use std::fs::File;
+        mkdir(&path)?;
+        serde_json::to_writer(File::create(path.join("create.json"))?, &self.create)?;
+        serde_json::to_writer(File::create(path.join("delete.json"))?, &self.delete)?;
+        serde_json::to_writer(File::create(path.join("open.json"))?, &self.open)?;
+        serde_json::to_writer(File::create(path.join("write.json"))?, &self.write)?;
+        serde_json::to_writer(File::create(path.join("read.json"))?, &self.read)?;
+        serde_json::to_writer(File::create(path.join("fsync.json"))?, &self.fsync)?;
+        serde_json::to_writer(
+            File::create(path.join("config.json"))?,
+            &self.varmail_config,
+        )?;
+        self.trace.export(&path, &"blktrace")
     }
 }

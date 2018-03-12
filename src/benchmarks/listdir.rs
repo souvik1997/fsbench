@@ -4,24 +4,53 @@ use super::fsbench::blktrace::*;
 use super::fsbench::util::*;
 use super::fsbench::fileset::*;
 use super::nix;
-use super::Configuration;
+use super::BaseConfiguration;
+use super::serde_json;
 use super::rand;
 use std::path::{Path, PathBuf};
 use rand::Rng;
-use rand::distributions::IndependentSample;
+use std::io;
 
-#[allow(dead_code)]
-pub struct ListDir {
+pub struct ListDir<'a> {
     open: Stats,
     close: Stats,
     readdir: Stats,
     trace: Trace,
+    base_config: &'a BaseConfiguration<'a>,
+    listdir_config: &'a ListDirConfig,
 }
 
-impl ListDir {
-    pub fn run<R: IndependentSample<f64>, RV: IndependentSample<f64>>(config: &Configuration<R, RV>) -> Self {
+#[derive(Serialize, Deserialize)]
+pub struct ListDirConfig {
+    num_files: usize,
+    dir_width: usize,
+}
+
+use std::error::Error;
+
+impl ListDirConfig {
+    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Box<Error>> {
+        use super::serde_json;
+        use std::fs::File;
+        let file = File::open(path)?;
+        let c = serde_json::from_reader(file)?;
+        Ok(c)
+    }
+}
+
+impl Default for ListDirConfig {
+    fn default() -> Self {
+        Self {
+            num_files: super::DEFAULT_NUM_FILES,
+            dir_width: super::DEFAULT_DIR_WIDTH,
+        }
+    }
+}
+
+impl<'a> ListDir<'a> {
+    pub fn run(base_config: &'a BaseConfiguration, config: &'a ListDirConfig) -> Self {
         drop_cache();
-        let config_path: &Path = config.filesystem_path.as_ref();
+        let config_path: &Path = base_config.filesystem_path.as_ref();
         let base_path = PathBuf::from(config_path.join("delete"));
         let file_set: Vec<PathBuf> = FileSet::new(config.num_files, &base_path, config.dir_width)
             .into_iter()
@@ -49,7 +78,7 @@ impl ListDir {
 
         drop_cache();
 
-        let trace = config
+        let trace = base_config
             .blktrace
             .record_with(|| {
                 const ITERATIONS: usize = 1000000;
@@ -78,12 +107,27 @@ impl ListDir {
             trace.num_cpus()
         );
         drop_cache();
-        trace.export(&config.output_dir, &"listdir");
         Self {
             open: open_stats,
             close: close_stats,
             readdir: readdir_stats,
             trace: trace,
+            base_config: base_config,
+            listdir_config: config,
         }
+    }
+
+    pub fn export(&self) -> io::Result<()> {
+        let path = self.base_config.output_dir.join("listdir");
+        use std::fs::File;
+        mkdir(&path)?;
+        serde_json::to_writer(File::create(path.join("open.json"))?, &self.open)?;
+        serde_json::to_writer(File::create(path.join("close.json"))?, &self.close)?;
+        serde_json::to_writer(File::create(path.join("readdir.json"))?, &self.readdir)?;
+        serde_json::to_writer(
+            File::create(path.join("config.json"))?,
+            &self.listdir_config,
+        )?;
+        self.trace.export(&path, &"blktrace")
     }
 }

@@ -6,16 +6,21 @@ extern crate log;
 extern crate nix;
 extern crate rand;
 extern crate rayon;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_json;
 extern crate tempdir;
 
 mod benchmarks;
 mod fsbench;
 
 fn main() {
+    // Enable backtraces
+    ::std::env::set_var("RUST_BACKTRACE", "1");
+
     use fsbench::blktrace::*;
     use fsbench::util::drop_cache;
-    use rand::distributions::normal::Normal;
-    use rand::distributions::Gamma;
     use std::path::PathBuf;
     use std::process::Command;
     setup_logger().expect("failed to setup logger");
@@ -30,20 +35,6 @@ fn main() {
                 .takes_value(true),
         )
         .arg(
-            clap::Arg::with_name("NUM_FILES")
-                .short("n")
-                .long("num-files")
-                .help("Number of files to generate (default = 1000000)")
-                .takes_value(true),
-        )
-        .arg(
-            clap::Arg::with_name("DIR_WIDTH")
-                .short("w")
-                .long("dir-width")
-                .help("Directory width (default = 7)")
-                .takes_value(true),
-        )
-        .arg(
             clap::Arg::with_name("OUTPUT")
                 .short("o")
                 .long("output-directory")
@@ -55,6 +46,13 @@ fn main() {
                 .short("k")
                 .long("debugfs-path")
                 .help("debugfs path (default = '/sys/kernel/debug')")
+                .takes_value(true),
+        )
+        .arg(
+            clap::Arg::with_name("MOUNT_PATH")
+                .short("m")
+                .long("mount-path")
+                .help("where to mount the block device")
                 .takes_value(true),
         )
         .get_matches();
@@ -74,26 +72,15 @@ fn main() {
     // Create a temporary directory. The device will be mounted here
     let tempdir = tempdir::TempDir::new("benchmarks").expect("failed to create temporary directory");
     // Get the path of the temporary directory
-    let filesystem_path = tempdir.path();
+    let filesystem_path = matches
+        .value_of("MOUNT_PATH")
+        .map_or(tempdir.path().to_owned(), |s| PathBuf::from(s));
 
     // All results will be written to the output directory
     let output_dir = PathBuf::from(matches.value_of("OUTPUT").unwrap_or("./output"));
 
     // The path where debugfs is mounted. This is used for blktrace
     let debugfs_path = matches.value_of("DEBUGFS").unwrap_or("/sys/kernel/debug");
-
-    // Get the number of files to create and directory width
-    let num_files = matches.value_of("NUM_FILES").map_or(100000, |s| {
-        s.parse().expect("Failed to parse number of files")
-    });
-
-    let dir_width = matches
-        .value_of("DIR_WIDTH")
-        .map_or(7, |s| s.parse().expect("Failed to parse directory width"));
-    info!(
-        "Running benchmark on {:?} with {} files",
-        filesystem_path, num_files
-    );
 
     // Start blktrace. This will call BLKTRACESETUP and BLKTRACESTART so IO events
     // will start showing up. However we will only consider events that occur during the benchmarks
@@ -103,19 +90,10 @@ fn main() {
         debugfs_path,
     ).expect("failed to setup blktrace");
 
-    let config = benchmarks::Configuration {
+    let base_config = benchmarks::BaseConfiguration {
         filesystem_path: &filesystem_path,
-        num_files: num_files,
-        dir_width: dir_width,
-        file_size_distribution: Normal::new(100 as f64, 10 as f64),
-        num_threads: 8,
         blktrace: blktrace,
         output_dir: output_dir,
-        varmail_config: benchmarks::VarmailConfig {
-            file_size_distribution: Gamma::new(16384 as f64, 1.5 as f64),
-            append_distribution: Gamma::new(16384 as f64, 1.5 as f64),
-            iterations: 10000,
-        },
     };
 
     // Mount the device at the mountpoint using the `mount` command
@@ -142,33 +120,59 @@ fn main() {
 
     // Standard createfiles test with no fsync
     info!("Running create test (end sync)..");
-    let _createfiles = benchmarks::CreateFiles::run(&config, &"createfiles", None);
+    let createfiles_config =
+        benchmarks::CreateFilesConfig::load("createfiles_config.json").unwrap_or(benchmarks::CreateFilesConfig::default());
+    benchmarks::CreateFiles::run(&base_config, &createfiles_config)
+        .export()
+        .expect("failed to export benchmark data");
 
     // Create files, but fsync after every 10 files
     info!("Running create test (intermittent fsync)..");
-    let _createfiles_sync = benchmarks::CreateFiles::run(&config, &"createfiles_sync", Some(10));
+    let createfiles_sync_config = benchmarks::CreateFilesBatchSyncConfig::load("createfiles_batchsync.json")
+        .unwrap_or(benchmarks::CreateFilesBatchSyncConfig::default());
+    benchmarks::CreateFilesBatchSync::run(&base_config, &createfiles_sync_config)
+        .export()
+        .expect("failed to export benchmark data");
 
     // Create files, but fsync after every file
     info!("Running create test (frequent fsync)..");
-    let _create_freq_sync = benchmarks::CreateFiles::run(&config, &"createfiles_eachsync", Some(1));
+    let createfiles_eachsync_config = benchmarks::CreateFilesEachSyncConfig::load("createfiles_eachsync.json")
+        .unwrap_or(benchmarks::CreateFilesEachSyncConfig::default());
+    benchmarks::CreateFilesEachSync::run(&base_config, &createfiles_eachsync_config)
+        .export()
+        .expect("failed to export benchmark data");
 
     // Rename files test
     info!("Running rename test..");
-    let _rename_files = benchmarks::RenameFiles::run(&config);
+    let renamefiles_config =
+        benchmarks::RenameFilesConfig::load("renamefiles_config.json").unwrap_or(benchmarks::RenameFilesConfig::default());
+    benchmarks::RenameFiles::run(&base_config, &renamefiles_config)
+        .export()
+        .expect("failed to export benchmark data");
 
     // Delete files test
     // NOTE: filebench has a removedirs.f workload, but this actually only calls rmdir() and _does not_
     // recursively delete files
     info!("Running delete test..");
-    let _delete_files = benchmarks::DeleteFiles::run(&config);
+    let deletefiles_config =
+        benchmarks::DeleteFilesConfig::load("deletefiles_config.json").unwrap_or(benchmarks::DeleteFilesConfig::default());
+    benchmarks::DeleteFiles::run(&base_config, &deletefiles_config)
+        .export()
+        .expect("failed to export benchmark data");
 
     // Listdir test
     info!("Running listdir test..");
-    let _listdir = benchmarks::ListDir::run(&config);
+    let listdir_config = benchmarks::ListDirConfig::load("listdir_config.json").unwrap_or(benchmarks::ListDirConfig::default());
+    benchmarks::ListDir::run(&base_config, &listdir_config)
+        .export()
+        .expect("failed to export benchmark data");
 
     // Varmail test, based off varmail.f from filebench
     info!("Running varmail test..");
-    let _varmail = benchmarks::Varmail::run(&config);
+    let varmail_config = benchmarks::VarmailConfig::load("varmail_config.json").unwrap_or(benchmarks::VarmailConfig::default());
+    benchmarks::Varmail::run(&base_config, &varmail_config)
+        .export()
+        .expect("failed to export benchmark data");
 
     // Unmount the device
     drop_cache();

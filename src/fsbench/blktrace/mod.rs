@@ -231,7 +231,9 @@ impl Blktrace {
             .position(|c| *c == 0)
             .unwrap_or(device_name_bytes.len());
         let device_name = str::from_utf8(&device_name_bytes[0..device_name_length]).expect("failed to parse device name as utf8");
-        let start_result = start(fd);
+        if start(fd) != 0 {
+            return Err(nix::Error::last())
+        }
         let trace_directory = Path::new(debugfs_path.as_ref())
             .join("block")
             .join(device_name);

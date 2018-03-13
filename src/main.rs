@@ -193,7 +193,38 @@ fn main() {
         return;
     }
 
+    use std::fs::File;
+    let mut summary = File::create(base_config.output_dir.join("summary.txt")).expect("failed to create summary file");
+    print_summary(&mut summary, "Createfiles", &createfiles).expect("failed to write to summary");
+    print_summary(&mut summary, "Createfiles Batch Sync", &createfiles_sync).expect("failed to write to summary");
+    print_summary(&mut summary, "Createfiles Each Sync", &createfiles_eachsync).expect("failed to write to summary");
+    print_summary(&mut summary, "Renamefiles", &renamefiles).expect("failed to write to summary");
+    print_summary(&mut summary, "Deletefiles", &deletefiles).expect("failed to write to summary");
+    print_summary(&mut summary, "Listdir", &listdir).expect("failed to write to summary");
+    print_summary(&mut summary, "Varmail", &varmail).expect("failed to write to summary");
+
     // Blktrace will be stopped by its destructor
+}
+
+fn print_summary<S: ::std::fmt::Display, B: benchmarks::Benchmark, W: ::std::io::Write>(
+    writer: &mut W,
+    name: S,
+    benchmark: &B,
+) -> ::std::io::Result<()> {
+    let total = benchmark.total();
+    let reads = benchmark.get_trace().completed_reads;
+    let writes = benchmark.get_trace().completed_writes;
+    writeln!(
+        writer,
+        "{}: Operations: {}, Operations/Second: {}, Reads: {}, Writes: {}, Reads/Operation: {}, Writes/Operation: {}",
+        name,
+        total.num_ops(),
+        total.ops_per_second(),
+        reads,
+        writes,
+        (reads as f64) / (total.num_ops() as f64),
+        (writes as f64) / (total.num_ops() as f64)
+    )
 }
 
 fn setup_logger() -> Result<(), fern::InitError> {

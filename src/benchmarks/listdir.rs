@@ -6,6 +6,7 @@ use super::fsbench::fileset::*;
 use super::nix;
 use super::BaseConfiguration;
 use super::serde_json;
+use super::Benchmark;
 use super::rand;
 use std::path::{Path, PathBuf};
 use rand::Rng;
@@ -130,8 +131,14 @@ impl<'a> ListDir<'a> {
         )?;
         self.trace.export(&path, &"blktrace")
     }
+}
 
-    pub fn total(&self) -> Stats {
+impl<'a> Benchmark for ListDir<'a> {
+    fn total(&self) -> Stats {
         self.open.clone() + self.close.clone() + self.readdir.clone()
+    }
+
+    fn get_trace<'b>(&'b self) -> &'b Trace {
+        &self.trace
     }
 }

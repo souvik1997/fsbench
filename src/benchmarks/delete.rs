@@ -6,6 +6,7 @@ use super::fsbench::fileset::*;
 use super::nix;
 use super::serde_json;
 use super::BaseConfiguration;
+use super::Benchmark;
 use std::io;
 
 use std::path::{Path, PathBuf};
@@ -127,8 +128,14 @@ impl<'a> DeleteFiles<'a> {
         )?;
         self.trace.export(&path, &"blktrace")
     }
+}
 
-    pub fn total(&self) -> Stats {
+impl<'a> Benchmark for DeleteFiles<'a> {
+    fn total(&self) -> Stats {
         self.open.clone() + self.close.clone() + self.unlink.clone()
+    }
+
+    fn get_trace<'b>(&'b self) -> &'b Trace {
+        &self.trace
     }
 }

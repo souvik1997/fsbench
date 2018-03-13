@@ -19,5 +19,12 @@ pub struct BaseConfiguration<'a> {
     pub output_dir: PathBuf,
 }
 
+use fsbench::blktrace::Trace;
+use fsbench::statistics::Stats;
+pub trait Benchmark {
+    fn total(&self) -> Stats;
+    fn get_trace<'b>(&'b self) -> &'b Trace;
+}
+
 const DEFAULT_DIR_WIDTH: usize = 7;
 const DEFAULT_NUM_FILES: usize = 100000;

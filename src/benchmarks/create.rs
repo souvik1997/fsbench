@@ -6,6 +6,7 @@ use super::fsbench::fileset::*;
 use super::nix;
 use super::BaseConfiguration;
 use super::serde_json;
+use super::Benchmark;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::io;
@@ -130,9 +131,15 @@ impl<'a> CreateFiles<'a> {
         )?;
         self.data.export(path)
     }
+}
 
-    pub fn total(&self) -> Stats {
+impl<'a> Benchmark for CreateFiles<'a> {
+    fn total(&self) -> Stats {
         self.data.total()
+    }
+
+    fn get_trace<'b>(&'b self) -> &'b Trace {
+        &self.data.trace
     }
 }
 
@@ -164,9 +171,15 @@ impl<'a> CreateFilesBatchSync<'a> {
         )?;
         self.data.export(path)
     }
+}
 
-    pub fn total(&self) -> Stats {
+impl<'a> Benchmark for CreateFilesBatchSync<'a> {
+    fn total(&self) -> Stats {
         self.data.total()
+    }
+
+    fn get_trace<'b>(&'b self) -> &'b Trace {
+        &self.data.trace
     }
 }
 
@@ -198,9 +211,15 @@ impl<'a> CreateFilesEachSync<'a> {
         )?;
         self.data.export(path)
     }
+}
 
-    pub fn total(&self) -> Stats {
+impl<'a> Benchmark for CreateFilesEachSync<'a> {
+    fn total(&self) -> Stats {
         self.data.total()
+    }
+
+    fn get_trace<'b>(&'b self) -> &'b Trace {
+        &self.data.trace
     }
 }
 

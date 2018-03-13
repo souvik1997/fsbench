@@ -7,6 +7,7 @@ use super::fsbench::blktrace::*;
 use super::fsbench::util::*;
 use super::fsbench::fileset::*;
 use super::BaseConfiguration;
+use super::Benchmark;
 use super::serde_json;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -234,8 +235,14 @@ impl<'a> Varmail<'a> {
         )?;
         self.trace.export(&path, &"blktrace")
     }
+}
 
-    pub fn total(&self) -> Stats {
+impl<'a> Benchmark for Varmail<'a> {
+    fn total(&self) -> Stats {
         self.create.clone() + self.delete.clone() + self.open.clone() + self.write.clone() + self.read.clone() + self.fsync.clone()
+    }
+
+    fn get_trace<'b>(&'b self) -> &'b Trace {
+        &self.trace
     }
 }

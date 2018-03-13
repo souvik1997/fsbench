@@ -29,6 +29,15 @@ impl Stats {
         self.latency.push(latency);
         self.bytes.push(bytes);
     }
+
+    pub fn num_ops(&self) -> usize {
+        self.bytes.len()
+    }
+
+    pub fn ops_per_second(&self) -> f64 {
+        let total_latency = self.total_latency();
+        (self.num_ops() as f64) / (total_latency.as_secs() as f64 + (total_latency.subsec_nanos() as f64 / 1_000_000_000 as f64))
+    }
 }
 
 impl fmt::Display for Stats {

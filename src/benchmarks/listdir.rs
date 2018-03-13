@@ -130,4 +130,8 @@ impl<'a> ListDir<'a> {
         )?;
         self.trace.export(&path, &"blktrace")
     }
+
+    pub fn total(&self) -> Stats {
+        self.open.clone() + self.close.clone() + self.readdir.clone()
+    }
 }

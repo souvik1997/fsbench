@@ -122,7 +122,8 @@ fn main() {
     info!("Running create test (end sync)..");
     let createfiles_config =
         benchmarks::CreateFilesConfig::load("createfiles_config.json").unwrap_or(benchmarks::CreateFilesConfig::default());
-    benchmarks::CreateFiles::run(&base_config, &createfiles_config)
+    let createfiles = benchmarks::CreateFiles::run(&base_config, &createfiles_config);
+    createfiles
         .export()
         .expect("failed to export benchmark data");
 
@@ -130,7 +131,8 @@ fn main() {
     info!("Running create test (intermittent fsync)..");
     let createfiles_sync_config = benchmarks::CreateFilesBatchSyncConfig::load("createfiles_batchsync.json")
         .unwrap_or(benchmarks::CreateFilesBatchSyncConfig::default());
-    benchmarks::CreateFilesBatchSync::run(&base_config, &createfiles_sync_config)
+    let createfiles_sync = benchmarks::CreateFilesBatchSync::run(&base_config, &createfiles_sync_config);
+    createfiles_sync
         .export()
         .expect("failed to export benchmark data");
 
@@ -138,7 +140,8 @@ fn main() {
     info!("Running create test (frequent fsync)..");
     let createfiles_eachsync_config = benchmarks::CreateFilesEachSyncConfig::load("createfiles_eachsync.json")
         .unwrap_or(benchmarks::CreateFilesEachSyncConfig::default());
-    benchmarks::CreateFilesEachSync::run(&base_config, &createfiles_eachsync_config)
+    let createfiles_eachsync = benchmarks::CreateFilesEachSync::run(&base_config, &createfiles_eachsync_config);
+    createfiles_eachsync
         .export()
         .expect("failed to export benchmark data");
 
@@ -146,7 +149,8 @@ fn main() {
     info!("Running rename test..");
     let renamefiles_config =
         benchmarks::RenameFilesConfig::load("renamefiles_config.json").unwrap_or(benchmarks::RenameFilesConfig::default());
-    benchmarks::RenameFiles::run(&base_config, &renamefiles_config)
+    let renamefiles = benchmarks::RenameFiles::run(&base_config, &renamefiles_config);
+    renamefiles
         .export()
         .expect("failed to export benchmark data");
 
@@ -156,23 +160,22 @@ fn main() {
     info!("Running delete test..");
     let deletefiles_config =
         benchmarks::DeleteFilesConfig::load("deletefiles_config.json").unwrap_or(benchmarks::DeleteFilesConfig::default());
-    benchmarks::DeleteFiles::run(&base_config, &deletefiles_config)
+    let deletefiles = benchmarks::DeleteFiles::run(&base_config, &deletefiles_config);
+    deletefiles
         .export()
         .expect("failed to export benchmark data");
 
     // Listdir test
     info!("Running listdir test..");
     let listdir_config = benchmarks::ListDirConfig::load("listdir_config.json").unwrap_or(benchmarks::ListDirConfig::default());
-    benchmarks::ListDir::run(&base_config, &listdir_config)
-        .export()
-        .expect("failed to export benchmark data");
+    let listdir = benchmarks::ListDir::run(&base_config, &listdir_config);
+    listdir.export().expect("failed to export benchmark data");
 
     // Varmail test, based off varmail.f from filebench
     info!("Running varmail test..");
     let varmail_config = benchmarks::VarmailConfig::load("varmail_config.json").unwrap_or(benchmarks::VarmailConfig::default());
-    benchmarks::Varmail::run(&base_config, &varmail_config)
-        .export()
-        .expect("failed to export benchmark data");
+    let varmail = benchmarks::Varmail::run(&base_config, &varmail_config);
+    varmail.export().expect("failed to export benchmark data");
 
     // Unmount the device
     drop_cache();

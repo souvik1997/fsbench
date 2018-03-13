@@ -234,4 +234,8 @@ impl<'a> Varmail<'a> {
         )?;
         self.trace.export(&path, &"blktrace")
     }
+
+    pub fn total(&self) -> Stats {
+        self.create.clone() + self.delete.clone() + self.open.clone() + self.write.clone() + self.read.clone() + self.fsync.clone()
+    }
 }

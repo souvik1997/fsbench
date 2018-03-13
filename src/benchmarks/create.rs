@@ -130,6 +130,10 @@ impl<'a> CreateFiles<'a> {
         )?;
         self.data.export(path)
     }
+
+    pub fn total(&self) -> Stats {
+        self.data.total()
+    }
 }
 
 impl<'a> CreateFilesBatchSync<'a> {
@@ -160,6 +164,10 @@ impl<'a> CreateFilesBatchSync<'a> {
         )?;
         self.data.export(path)
     }
+
+    pub fn total(&self) -> Stats {
+        self.data.total()
+    }
 }
 
 impl<'a> CreateFilesEachSync<'a> {
@@ -189,6 +197,10 @@ impl<'a> CreateFilesEachSync<'a> {
             &self.createfiles_config,
         )?;
         self.data.export(path)
+    }
+
+    pub fn total(&self) -> Stats {
+        self.data.total()
     }
 }
 
@@ -282,5 +294,9 @@ impl CreateFilesShared {
         serde_json::to_writer(File::create(path.as_ref().join("fsync.json"))?, &self.fsync)?;
         serde_json::to_writer(File::create(path.as_ref().join("sync.json"))?, &self.sync)?;
         self.trace.export(&path, &"blktrace")
+    }
+
+    fn total(&self) -> Stats {
+        self.open.clone() + self.close.clone() + self.fsync.clone() + self.sync.clone()
     }
 }

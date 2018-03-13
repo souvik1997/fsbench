@@ -232,11 +232,9 @@ impl Blktrace {
             .unwrap_or(device_name_bytes.len());
         let device_name = str::from_utf8(&device_name_bytes[0..device_name_length]).expect("failed to parse device name as utf8");
         let start_result = start(fd);
-        println!("blktrace start result on fd {}: {}", fd, start_result);
         let trace_directory = Path::new(debugfs_path.as_ref())
             .join("block")
             .join(device_name);
-        println!("scanning {:?}", trace_directory);
         let mut trace_paths: Vec<PathBuf> = fs::read_dir(trace_directory)
             .expect("failed to read trace directory")
             .filter_map(|path| match path {

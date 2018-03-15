@@ -233,46 +233,71 @@ struct CreateFilesShared {
 
 impl CreateFilesShared {
     pub fn run(file_set: FileSet, blktrace: &Blktrace, batch_size: Option<usize>) -> Self {
+        use std::os::unix::io::RawFd;
+        use super::rand;
+        use rand::Rng;
+
         drop_cache();
-        let file_set: Vec<PathBuf> = file_set.into_iter().collect();
+        let file_set: Vec<PathBuf> = {
+            let mut f: Vec<PathBuf> = file_set.into_iter().collect();
+            rand::thread_rng().shuffle(&mut f);
+            f
+        };
         let mut open = Open::new();
         let mut close = Close::new();
         let mut fsync = Fsync::new();
         let mut sync = Sync::new();
 
+        for file in &file_set {
+            let parent_path = file.parent().expect("file should have parent");
+            mkdir(parent_path).expect("failed to construct directory tree");
+        }
+
         let trace = blktrace
             .record_with(|| {
                 // Create directory structure and files
-                let mut fd_queue = Vec::new();
+                let mut fd_queue: Vec<(RawFd, &Path)> = Vec::new();
                 fd_queue.reserve(batch_size.unwrap_or(0));
                 for file in &file_set {
-                    if let Some(parent_path) = file.parent() {
-                        mkdir(parent_path).expect("failed to construct directory tree");
-                        assert!(parent_path.is_dir());
-                        let fd = open.run(
-                            file,
-                            nix::fcntl::OFlag::O_CREAT | nix::fcntl::OFlag::O_RDWR,
-                            nix::sys::stat::Mode::S_IRWXU,
-                        ).expect("failed to create file");
+                    let parent_path = file.parent().expect("file should have parent");
+                    assert!(parent_path.is_dir());
+                    let fd = open.run(
+                        file,
+                        nix::fcntl::OFlag::O_CREAT | nix::fcntl::OFlag::O_RDWR,
+                        nix::sys::stat::Mode::S_IRWXU,
+                    ).expect("failed to create file");
 
-                        if let Some(batch_size) = batch_size {
-                            if fd_queue.len() >= batch_size {
-                                for ifd in &fd_queue {
-                                    fsync.run(*ifd).expect("failed to fsync file");
-                                    close.run(*ifd).expect("failed to close file");
-                                }
-                                fd_queue.clear();
-                                fd_queue.reserve(batch_size);
+                    if let Some(batch_size) = batch_size {
+                        if fd_queue.len() >= batch_size {
+                            for &(ifd, containing_directory) in &fd_queue {
+                                fsync.run(ifd).expect("failed to fsync file");
+                                close.run(ifd).expect("failed to close file");
+                                let dir_fd = nix::fcntl::open(
+                                    containing_directory,
+                                    nix::fcntl::OFlag::O_DIRECTORY,
+                                    nix::sys::stat::Mode::S_IRWXU,
+                                ).expect("failed to open parent directory");
+                                nix::unistd::fsync(dir_fd).expect("failed to fsync parent directory");
+                                nix::unistd::close(dir_fd).expect("failed to close dir fd");
                             }
-                            fd_queue.push(fd);
-                        } else {
-                            close.run(fd).expect("failed to close file");
+                            fd_queue.clear();
+                            fd_queue.reserve(batch_size);
                         }
+                        fd_queue.push((fd, parent_path));
+                    } else {
+                        close.run(fd).expect("failed to close file");
                     }
                 }
-                for ifd in &fd_queue {
-                    fsync.run(*ifd).expect("failed to fsync file");
-                    close.run(*ifd).expect("failed to close file");
+                for &(ifd, containing_directory) in &fd_queue {
+                    fsync.run(ifd).expect("failed to fsync file");
+                    close.run(ifd).expect("failed to close file");
+                    let dir_fd = nix::fcntl::open(
+                        containing_directory,
+                        nix::fcntl::OFlag::O_DIRECTORY,
+                        nix::sys::stat::Mode::S_IRWXU,
+                    ).expect("failed to open parent directory");
+                    nix::unistd::fsync(dir_fd).expect("failed to fsync parent directory");
+                    nix::unistd::close(dir_fd).expect("failed to close dir fd");
                 }
                 sync.run();
             })

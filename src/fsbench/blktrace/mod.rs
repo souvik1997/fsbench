@@ -1,6 +1,6 @@
 use super::nix;
-use std::path::{Path, PathBuf};
 use std::os::unix::io::RawFd;
+use std::path::{Path, PathBuf};
 use std::str;
 use std::thread;
 
@@ -91,17 +91,12 @@ impl Blktrace {
             return Err(nix::Error::last());
         }
         let device_name_bytes = buts.name.clone();
-        let device_name_length = buts.name
-            .iter()
-            .position(|c| *c == 0)
-            .unwrap_or(device_name_bytes.len());
+        let device_name_length = buts.name.iter().position(|c| *c == 0).unwrap_or(device_name_bytes.len());
         let device_name = str::from_utf8(&device_name_bytes[0..device_name_length]).expect("failed to parse device name as utf8");
         if start(fd) != 0 {
             return Err(nix::Error::last());
         }
-        let trace_directory = Path::new(debugfs_path.as_ref())
-            .join("block")
-            .join(device_name);
+        let trace_directory = Path::new(debugfs_path.as_ref()).join("block").join(device_name);
         let mut trace_paths: Vec<PathBuf> = fs::read_dir(trace_directory)
             .expect("failed to read trace directory")
             .filter_map(|path| match path {
@@ -141,17 +136,17 @@ impl Blktrace {
     }
 
     pub fn record_with<F: FnMut() -> ()>(&self, mut task: F) -> nix::Result<Trace> {
-        use nix::poll::PollFd;
+        use super::util::drop_cache;
         use nix::poll::EventFlags;
+        use nix::poll::PollFd;
         use nix::poll::poll;
-        use std::time::Duration;
-        use std::sync::atomic::{AtomicBool, Ordering};
-        use std::sync::Arc;
-        use std::sync::RwLock;
-        use std::os::unix::io::FromRawFd;
         use std::fs::File;
         use std::io::Read;
-        use super::util::drop_cache;
+        use std::os::unix::io::FromRawFd;
+        use std::sync::Arc;
+        use std::sync::RwLock;
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::time::Duration;
 
         // The buffers are vectors of u8's
         let buffers: Arc<RwLock<Vec<Buffer>>> = {
@@ -171,10 +166,7 @@ impl Blktrace {
         }
 
         // unsafe: make Rust file objects from the raw file descriptors
-        let files: Vec<File> = file_descriptors
-            .iter()
-            .map(|fd| unsafe { File::from_raw_fd(*fd) })
-            .collect();
+        let files: Vec<File> = file_descriptors.iter().map(|fd| unsafe { File::from_raw_fd(*fd) }).collect();
 
         // Wait some time to allow IO events to accumulate
         drop_cache();
@@ -183,8 +175,7 @@ impl Blktrace {
         // Read all events and throw them away
         let mut throwaway_data: Vec<u8> = Vec::new();
         for mut f in &files {
-            f.read_to_end(&mut throwaway_data)
-                .expect("failed to read events from trace file");
+            f.read_to_end(&mut throwaway_data).expect("failed to read events from trace file");
             throwaway_data.resize(0, 0);
         }
 
@@ -204,10 +195,7 @@ impl Blktrace {
         // spawn the reader thread
         let thread = thread::spawn(move || {
             // setup file descriptors for poll()
-            let mut poll_file_descriptors: Vec<PollFd> = file_descriptors
-                .iter()
-                .map(|fd| PollFd::new(*fd, EventFlags::POLLIN))
-                .collect();
+            let mut poll_file_descriptors: Vec<PollFd> = file_descriptors.iter().map(|fd| PollFd::new(*fd, EventFlags::POLLIN)).collect();
 
             while !cancel_flag_thread.load(Ordering::SeqCst) {
                 // poll the files with timeout = 500ms

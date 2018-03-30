@@ -1,7 +1,7 @@
-use std::path::{Path, PathBuf};
-use std::io;
-use std::cmp::Ordering;
 use super::api::BlkIOTrace;
+use std::cmp::Ordering;
+use std::io;
+use std::path::{Path, PathBuf};
 
 pub const SECTOR_SIZE: usize = 512;
 
@@ -91,8 +91,7 @@ impl Event {
             time: trace.time,
             sector: trace.sector,
             bytes: trace.bytes,
-            action: num::FromPrimitive::from_u32(trace.action & 0xffff)
-                .expect("invalid action type"),
+            action: num::FromPrimitive::from_u32(trace.action & 0xffff).expect("invalid action type"),
             category: Category::from_bits_truncate(((trace.action & 0xffff0000) >> 16) as u16),
             pid: trace.pid,
             device: trace.device,
@@ -146,12 +145,12 @@ fn parse(b: &[u8]) -> Vec<Event> {
 
 pub struct Trace {
     data: Vec<Vec<u8>>,
-    per_cpu_events: Vec<Vec<Event>>
+    per_cpu_events: Vec<Vec<Event>>,
 }
 
 impl Trace {
     pub fn new(data: Vec<Vec<u8>>) -> Self {
-        let per_cpu_events = data.iter().map(|d| { parse(&d) }).collect::<Vec<_>>();
+        let per_cpu_events = data.iter().map(|d| parse(&d)).collect::<Vec<_>>();
         Self {
             data: data,
             per_cpu_events: per_cpu_events,
@@ -163,16 +162,14 @@ impl Trace {
     }
 
     pub fn total_bytes(&self) -> usize {
-        self.data.iter().fold(0, |acc, s| {
-            acc + s.len()
-        })
+        self.data.iter().fold(0, |acc, s| acc + s.len())
     }
 
     pub fn export<P: AsRef<Path>, Q: AsRef<Path>>(&self, path: &P, prefix: &Q) -> io::Result<()> {
-        use std::io::Write;
-        use std::fs::File;
-        use std::process::Command;
         use super::super::util::mkdir;
+        use std::fs::File;
+        use std::io::Write;
+        use std::process::Command;
         mkdir(path.as_ref())?;
         for (index, buf) in self.data.iter().enumerate() {
             let mut filename = PathBuf::new();
@@ -191,12 +188,7 @@ impl Trace {
             }
         }
         let blkparse = Command::new("blkparse")
-            .args(&[
-                path.as_ref()
-                    .join(prefix)
-                    .to_str()
-                    .expect("failed to convert path to string"),
-            ])
+            .args(&[path.as_ref().join(prefix).to_str().expect("failed to convert path to string")])
             .output();
         match blkparse {
             Ok(blkparse_output) => {
@@ -219,26 +211,38 @@ impl Trace {
     }
 
     pub fn completed_reads<'a>(&'a self) -> usize {
-        self.per_cpu_events.iter().map(|events| {
-            events.iter().filter_map(|event| {
-                if event.category.contains(Category::COMPLETE | Category::READ){
-                    Some(event)
-                } else {
-                    None
-                }
-            }).fold(0, |acc, event| acc + event.bytes as usize)
-        }).fold(0, |acc, bytes| acc + bytes)
+        self.per_cpu_events
+            .iter()
+            .map(|events| {
+                events
+                    .iter()
+                    .filter_map(|event| {
+                        if event.category.contains(Category::COMPLETE | Category::READ) {
+                            Some(event)
+                        } else {
+                            None
+                        }
+                    })
+                    .fold(0, |acc, event| acc + event.bytes as usize)
+            })
+            .fold(0, |acc, bytes| acc + bytes)
     }
 
     pub fn completed_writes(&self) -> usize {
-        self.per_cpu_events.iter().map(|events| {
-            events.iter().filter_map(|event| {
-                if event.category.contains(Category::COMPLETE | Category::WRITE){
-                    Some(event)
-                } else {
-                    None
-                }
-            }).fold(0, |acc, event| acc + event.bytes as usize)
-        }).fold(0, |acc, bytes| acc + bytes)
+        self.per_cpu_events
+            .iter()
+            .map(|events| {
+                events
+                    .iter()
+                    .filter_map(|event| {
+                        if event.category.contains(Category::COMPLETE | Category::WRITE) {
+                            Some(event)
+                        } else {
+                            None
+                        }
+                    })
+                    .fold(0, |acc, event| acc + event.bytes as usize)
+            })
+            .fold(0, |acc, bytes| acc + bytes)
     }
 }

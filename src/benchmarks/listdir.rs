@@ -1,16 +1,16 @@
+use super::BaseConfiguration;
+use super::Benchmark;
+use super::fsbench::blktrace::*;
+use super::fsbench::fileset::*;
 use super::fsbench::operation::*;
 use super::fsbench::statistics::*;
-use super::fsbench::blktrace::*;
 use super::fsbench::util::*;
-use super::fsbench::fileset::*;
 use super::nix;
-use super::BaseConfiguration;
-use super::serde_json;
-use super::Benchmark;
 use super::rand;
-use std::path::{Path, PathBuf};
+use super::serde_json;
 use rand::Rng;
 use std::io;
+use std::path::{Path, PathBuf};
 
 pub struct ListDir<'a> {
     open: Stats,
@@ -53,9 +53,7 @@ impl<'a> ListDir<'a> {
         drop_cache();
         let config_path: &Path = base_config.filesystem_path.as_ref();
         let base_path = PathBuf::from(config_path.join("delete"));
-        let file_set: Vec<PathBuf> = FileSet::new(config.num_files, &base_path, config.dir_width)
-            .into_iter()
-            .collect();
+        let file_set: Vec<PathBuf> = FileSet::new(config.num_files, &base_path, config.dir_width).into_iter().collect();
         let mut directories = Vec::<PathBuf>::new();
         let mut file_set_shuffled = file_set.clone();
         rand::thread_rng().shuffle(&mut file_set_shuffled);
@@ -68,11 +66,8 @@ impl<'a> ListDir<'a> {
                 mkdir(parent_path).expect("failed to construct directory tree");
                 assert!(parent_path.is_dir());
                 directories.push(parent_path.to_owned());
-                let fd = open.run(
-                    &file,
-                    nix::fcntl::OFlag::O_CREAT,
-                    nix::sys::stat::Mode::S_IRWXU,
-                ).expect("failed to create file");
+                let fd = open.run(&file, nix::fcntl::OFlag::O_CREAT, nix::sys::stat::Mode::S_IRWXU)
+                    .expect("failed to create file");
                 close.run(fd).expect("failed to close file");
             }
         }
@@ -98,15 +93,8 @@ impl<'a> ListDir<'a> {
         info!(" - Open: {}", open_stats);
         info!(" - Close: {}", close_stats);
         info!(" - Readdir: {}", readdir_stats);
-        info!(
-            " - Total: {}",
-            open_stats.clone() + close_stats.clone() + readdir_stats.clone()
-        );
-        info!(
-            " - Blktrace recorded {} bytes on {} cpus",
-            trace.total_bytes(),
-            trace.num_cpus()
-        );
+        info!(" - Total: {}", open_stats.clone() + close_stats.clone() + readdir_stats.clone());
+        info!(" - Blktrace recorded {} bytes on {} cpus", trace.total_bytes(), trace.num_cpus());
         drop_cache();
         Self {
             open: open_stats,
@@ -125,10 +113,7 @@ impl<'a> ListDir<'a> {
         serde_json::to_writer(File::create(path.join("open.json"))?, &self.open)?;
         serde_json::to_writer(File::create(path.join("close.json"))?, &self.close)?;
         serde_json::to_writer(File::create(path.join("readdir.json"))?, &self.readdir)?;
-        serde_json::to_writer(
-            File::create(path.join("config.json"))?,
-            &self.listdir_config,
-        )?;
+        serde_json::to_writer(File::create(path.join("config.json"))?, &self.listdir_config)?;
         self.trace.export(&path, &"blktrace")
     }
 }

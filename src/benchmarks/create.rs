@@ -1,15 +1,15 @@
+use super::BaseConfiguration;
+use super::Benchmark;
+use super::fsbench::blktrace::*;
+use super::fsbench::fileset::*;
 use super::fsbench::operation::*;
 use super::fsbench::statistics::*;
-use super::fsbench::blktrace::*;
 use super::fsbench::util::*;
-use super::fsbench::fileset::*;
 use super::nix;
-use super::BaseConfiguration;
 use super::serde_json;
-use super::Benchmark;
 use std::error::Error;
-use std::path::{Path, PathBuf};
 use std::io;
+use std::path::{Path, PathBuf};
 
 #[derive(Serialize, Deserialize)]
 pub struct CreateFilesConfig {
@@ -108,11 +108,7 @@ impl<'a> CreateFiles<'a> {
         let base_path = base_config.filesystem_path.join("createfiles");
         Self {
             data: CreateFilesShared::run(
-                FileSet::new(
-                    createfiles_config.num_files,
-                    &base_path,
-                    createfiles_config.dir_width,
-                ),
+                FileSet::new(createfiles_config.num_files, &base_path, createfiles_config.dir_width),
                 &base_config.blktrace,
                 None,
             ),
@@ -125,10 +121,7 @@ impl<'a> CreateFiles<'a> {
         use std::fs::File;
         let path = self.base_config.output_dir.join("createfiles");
         mkdir(&path)?;
-        serde_json::to_writer(
-            File::create(path.join("config.json"))?,
-            &self.createfiles_config,
-        )?;
+        serde_json::to_writer(File::create(path.join("config.json"))?, &self.createfiles_config)?;
         self.data.export(path)
     }
 }
@@ -148,11 +141,7 @@ impl<'a> CreateFilesBatchSync<'a> {
         let base_path = base_config.filesystem_path.join("createfiles_batchsync");
         Self {
             data: CreateFilesShared::run(
-                FileSet::new(
-                    createfiles_config.num_files,
-                    &base_path,
-                    createfiles_config.dir_width,
-                ),
+                FileSet::new(createfiles_config.num_files, &base_path, createfiles_config.dir_width),
                 &base_config.blktrace,
                 Some(createfiles_config.batch_size),
             ),
@@ -165,10 +154,7 @@ impl<'a> CreateFilesBatchSync<'a> {
         use std::fs::File;
         let path = self.base_config.output_dir.join("createfiles_batchsync");
         mkdir(&path)?;
-        serde_json::to_writer(
-            File::create(path.join("config.json"))?,
-            &self.createfiles_config,
-        )?;
+        serde_json::to_writer(File::create(path.join("config.json"))?, &self.createfiles_config)?;
         self.data.export(path)
     }
 }
@@ -188,11 +174,7 @@ impl<'a> CreateFilesEachSync<'a> {
         let base_path = base_config.filesystem_path.join("createfiles_eachsync");
         Self {
             data: CreateFilesShared::run(
-                FileSet::new(
-                    createfiles_config.num_files,
-                    &base_path,
-                    createfiles_config.dir_width,
-                ),
+                FileSet::new(createfiles_config.num_files, &base_path, createfiles_config.dir_width),
                 &base_config.blktrace,
                 Some(0),
             ),
@@ -205,10 +187,7 @@ impl<'a> CreateFilesEachSync<'a> {
         use std::fs::File;
         let path = self.base_config.output_dir.join("createfiles_eachsync");
         mkdir(&path)?;
-        serde_json::to_writer(
-            File::create(path.join("config.json"))?,
-            &self.createfiles_config,
-        )?;
+        serde_json::to_writer(File::create(path.join("config.json"))?, &self.createfiles_config)?;
         self.data.export(path)
     }
 }
@@ -233,9 +212,9 @@ struct CreateFilesShared {
 
 impl CreateFilesShared {
     pub fn run(file_set: FileSet, blktrace: &Blktrace, batch_size: Option<usize>) -> Self {
-        use std::os::unix::io::RawFd;
         use super::rand;
         use rand::Rng;
+        use std::os::unix::io::RawFd;
 
         drop_cache();
         let file_set: Vec<PathBuf> = {
@@ -272,11 +251,9 @@ impl CreateFilesShared {
                             for &(ifd, containing_directory) in &fd_queue {
                                 fsync.run(ifd).expect("failed to fsync file");
                                 close.run(ifd).expect("failed to close file");
-                                let dir_fd = nix::fcntl::open(
-                                    containing_directory,
-                                    nix::fcntl::OFlag::O_DIRECTORY,
-                                    nix::sys::stat::Mode::S_IRWXU,
-                                ).expect("failed to open parent directory");
+                                let dir_fd =
+                                    nix::fcntl::open(containing_directory, nix::fcntl::OFlag::O_DIRECTORY, nix::sys::stat::Mode::S_IRWXU)
+                                        .expect("failed to open parent directory");
                                 nix::unistd::fsync(dir_fd).expect("failed to fsync parent directory");
                                 nix::unistd::close(dir_fd).expect("failed to close dir fd");
                             }
@@ -291,11 +268,8 @@ impl CreateFilesShared {
                 for &(ifd, containing_directory) in &fd_queue {
                     fsync.run(ifd).expect("failed to fsync file");
                     close.run(ifd).expect("failed to close file");
-                    let dir_fd = nix::fcntl::open(
-                        containing_directory,
-                        nix::fcntl::OFlag::O_DIRECTORY,
-                        nix::sys::stat::Mode::S_IRWXU,
-                    ).expect("failed to open parent directory");
+                    let dir_fd = nix::fcntl::open(containing_directory, nix::fcntl::OFlag::O_DIRECTORY, nix::sys::stat::Mode::S_IRWXU)
+                        .expect("failed to open parent directory");
                     nix::unistd::fsync(dir_fd).expect("failed to fsync parent directory");
                     nix::unistd::close(dir_fd).expect("failed to close dir fd");
                 }
@@ -316,11 +290,7 @@ impl CreateFilesShared {
             " - Total: {}",
             open_stats.clone() + close_stats.clone() + fsync_stats.clone() + sync_stats.clone()
         );
-        info!(
-            " - Blktrace recorded {} bytes on {} cpus",
-            trace.total_bytes(),
-            trace.num_cpus()
-        );
+        info!(" - Blktrace recorded {} bytes on {} cpus", trace.total_bytes(), trace.num_cpus());
         drop_cache();
         Self {
             open: open_stats,

@@ -1,5 +1,5 @@
-use std::time::Duration;
 use std::fmt;
+use std::time::Duration;
 
 #[derive(Clone, Serialize)]
 pub struct Stats {
@@ -16,9 +16,7 @@ impl Stats {
     }
 
     pub fn total_latency(&self) -> Duration {
-        return self.latency
-            .iter()
-            .fold(Duration::new(0, 0), |acc, s| acc + *s);
+        return self.latency.iter().fold(Duration::new(0, 0), |acc, s| acc + *s);
     }
 
     pub fn total_bytes(&self) -> usize {
@@ -58,11 +56,7 @@ impl fmt::Display for Stats {
             total_latency.subsec_nanos()
         )?;
         write!(f, " - Average latency = {}\n", avg_latency)?;
-        write!(
-            f,
-            " - Bytes/Operation = {}\n",
-            (total_bytes as f64) / (num_ops as f64)
-        )?;
+        write!(f, " - Bytes/Operation = {}\n", (total_bytes as f64) / (num_ops as f64))?;
 
         let ops_per_second =
             (num_ops as f64) / (total_latency.as_secs() as f64 + (total_latency.subsec_nanos() as f64 / 1_000_000_000 as f64));

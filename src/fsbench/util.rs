@@ -1,9 +1,9 @@
 use super::libc;
-use std::path::Path;
 use std::fs;
+use std::fs::OpenOptions;
 use std::io;
 use std::io::prelude::*;
-use std::fs::OpenOptions;
+use std::path::Path;
 
 // Recursively constructs a directory tree
 pub fn mkdir<P: AsRef<Path>>(path: P) -> io::Result<()> {

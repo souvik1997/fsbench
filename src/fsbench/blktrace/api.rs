@@ -51,11 +51,7 @@ pub fn setup(fd: RawFd, obj: *mut BlkUserTraceSetup) -> i32 {
     unsafe {
         libc::ioctl(
             fd,
-            iorw!(
-                BLKTRACESETUP_MAGIC1,
-                BLKTRACESETUP_MAGIC2,
-                mem::size_of::<BlkUserTraceSetup>()
-            ),
+            iorw!(BLKTRACESETUP_MAGIC1, BLKTRACESETUP_MAGIC2, mem::size_of::<BlkUserTraceSetup>()),
             obj,
         )
     }

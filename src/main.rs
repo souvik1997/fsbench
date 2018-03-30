@@ -9,9 +9,9 @@ extern crate rayon;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+extern crate num;
 extern crate serde_json;
 extern crate tempdir;
-extern crate num;
 #[macro_use]
 extern crate num_derive;
 extern crate num_traits;
@@ -92,11 +92,7 @@ fn main() {
 
     // Start blktrace. This will call BLKTRACESETUP and BLKTRACESTART so IO events
     // will start showing up. However we will only consider events that occur during the benchmarks
-    let blktrace = Blktrace::new(
-        PathBuf::from(device),
-        BlktraceConfig::default(),
-        debugfs_path,
-    ).expect("failed to setup blktrace");
+    let blktrace = Blktrace::new(PathBuf::from(device), BlktraceConfig::default(), debugfs_path).expect("failed to setup blktrace");
 
     let base_config = benchmarks::BaseConfiguration {
         filesystem_path: &filesystem_path,
@@ -109,12 +105,7 @@ fn main() {
     // which means we would have to try each filesystem that the kernel supports.
     // mount returns with exit code 0 if it succeeds.
     if !Command::new("mount")
-        .args(&[
-            device,
-            filesystem_path
-                .to_str()
-                .expect("failed to convert path to string"),
-        ])
+        .args(&[device, filesystem_path.to_str().expect("failed to convert path to string")])
         .status()
         .expect("failed to run `mount`")
         .success()
@@ -131,36 +122,28 @@ fn main() {
     let createfiles_config =
         benchmarks::CreateFilesConfig::load("createfiles_config.json").unwrap_or(benchmarks::CreateFilesConfig::default());
     let createfiles = benchmarks::CreateFiles::run(&base_config, &createfiles_config);
-    createfiles
-        .export()
-        .expect("failed to export benchmark data");
+    createfiles.export().expect("failed to export benchmark data");
 
     // Create files, but fsync after every 10 files
     info!("Running create test (intermittent fsync)..");
     let createfiles_sync_config = benchmarks::CreateFilesBatchSyncConfig::load("createfiles_batchsync.json")
         .unwrap_or(benchmarks::CreateFilesBatchSyncConfig::default());
     let createfiles_sync = benchmarks::CreateFilesBatchSync::run(&base_config, &createfiles_sync_config);
-    createfiles_sync
-        .export()
-        .expect("failed to export benchmark data");
+    createfiles_sync.export().expect("failed to export benchmark data");
 
     // Create files, but fsync after every file
     info!("Running create test (frequent fsync)..");
     let createfiles_eachsync_config = benchmarks::CreateFilesEachSyncConfig::load("createfiles_eachsync.json")
         .unwrap_or(benchmarks::CreateFilesEachSyncConfig::default());
     let createfiles_eachsync = benchmarks::CreateFilesEachSync::run(&base_config, &createfiles_eachsync_config);
-    createfiles_eachsync
-        .export()
-        .expect("failed to export benchmark data");
+    createfiles_eachsync.export().expect("failed to export benchmark data");
 
     // Rename files test
     info!("Running rename test..");
     let renamefiles_config =
         benchmarks::RenameFilesConfig::load("renamefiles_config.json").unwrap_or(benchmarks::RenameFilesConfig::default());
     let renamefiles = benchmarks::RenameFiles::run(&base_config, &renamefiles_config);
-    renamefiles
-        .export()
-        .expect("failed to export benchmark data");
+    renamefiles.export().expect("failed to export benchmark data");
 
     // Delete files test
     // NOTE: filebench has a removedirs.f workload, but this actually only calls rmdir() and _does not_
@@ -169,9 +152,7 @@ fn main() {
     let deletefiles_config =
         benchmarks::DeleteFilesConfig::load("deletefiles_config.json").unwrap_or(benchmarks::DeleteFilesConfig::default());
     let deletefiles = benchmarks::DeleteFiles::run(&base_config, &deletefiles_config);
-    deletefiles
-        .export()
-        .expect("failed to export benchmark data");
+    deletefiles.export().expect("failed to export benchmark data");
 
     // Listdir test
     info!("Running listdir test..");
@@ -190,11 +171,7 @@ fn main() {
     // Unmount the device
     drop_cache();
     if !Command::new("umount")
-        .args(&[
-            filesystem_path
-                .to_str()
-                .expect("failed to convert path to string"),
-        ])
+        .args(&[filesystem_path.to_str().expect("failed to convert path to string")])
         .status()
         .expect("failed to run `mount`")
         .success()
@@ -204,12 +181,14 @@ fn main() {
     }
 
     use std::fs::File;
-    let info = vec![get_summary("createfiles", &createfiles),
-                    get_summary("createfiles_batchsync", &createfiles_sync),
-                    get_summary("createfiles_eachsync", &createfiles_eachsync),
-                    get_summary("renamefiles", &renamefiles),
-                    get_summary("deletefiles", &deletefiles),
-                    get_summary("listdir", &listdir)];
+    let info = vec![
+        get_summary("createfiles", &createfiles),
+        get_summary("createfiles_batchsync", &createfiles_sync),
+        get_summary("createfiles_eachsync", &createfiles_eachsync),
+        get_summary("renamefiles", &renamefiles),
+        get_summary("deletefiles", &deletefiles),
+        get_summary("listdir", &listdir),
+    ];
     serde_json::to_writer(
         File::create(base_config.output_dir.join("summary.json")).expect("failed to create file"),
         &info,
@@ -227,10 +206,7 @@ struct Summary {
     writes: usize,
 }
 
-fn get_summary<B: benchmarks::Benchmark>(
-    name: &str,
-    benchmark: &B,
-) -> Summary {
+fn get_summary<B: benchmarks::Benchmark>(name: &str, benchmark: &B) -> Summary {
     let total = benchmark.total();
     let reads = benchmark.get_trace().completed_reads();
     let writes = benchmark.get_trace().completed_writes();
@@ -247,9 +223,7 @@ fn setup_logger() -> Result<(), fern::InitError> {
     use fern::colors::{Color, ColoredLevelConfig};
     fern::Dispatch::new()
         .format(|out, message, record| {
-            let colors = ColoredLevelConfig::new()
-                .info(Color::Green)
-                .warn(Color::Yellow);
+            let colors = ColoredLevelConfig::new().info(Color::Green).warn(Color::Yellow);
             out.finish(format_args!(
                 "{}[{}][{}] {}",
                 chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),

@@ -1,12 +1,12 @@
-use super::fsbench::operation::*;
-use super::fsbench::statistics::*;
-use super::fsbench::blktrace::*;
-use super::fsbench::util::*;
-use super::fsbench::fileset::*;
-use super::nix;
-use super::serde_json;
 use super::BaseConfiguration;
 use super::Benchmark;
+use super::fsbench::blktrace::*;
+use super::fsbench::fileset::*;
+use super::fsbench::operation::*;
+use super::fsbench::statistics::*;
+use super::fsbench::util::*;
+use super::nix;
+use super::serde_json;
 use std::io;
 
 use std::path::{Path, PathBuf};
@@ -55,9 +55,7 @@ impl<'a> DeleteFiles<'a> {
         drop_cache();
         let config_path: &Path = base_config.filesystem_path.as_ref();
         let base_path = PathBuf::from(config_path.join("delete"));
-        let file_set: Vec<PathBuf> = FileSet::new(config.num_files, &base_path, config.dir_width)
-            .into_iter()
-            .collect();
+        let file_set: Vec<PathBuf> = FileSet::new(config.num_files, &base_path, config.dir_width).into_iter().collect();
         let mut file_set_shuffled = file_set.clone();
         rand::thread_rng().shuffle(&mut file_set_shuffled);
         let mut open = Open::new();
@@ -68,11 +66,8 @@ impl<'a> DeleteFiles<'a> {
             if let Some(parent_path) = file.parent() {
                 mkdir(parent_path).expect("failed to construct directory tree");
                 assert!(parent_path.is_dir());
-                let fd = open.run(
-                    &file,
-                    nix::fcntl::OFlag::O_CREAT,
-                    nix::sys::stat::Mode::S_IRWXU,
-                ).expect("failed to create file");
+                let fd = open.run(&file, nix::fcntl::OFlag::O_CREAT, nix::sys::stat::Mode::S_IRWXU)
+                    .expect("failed to create file");
                 close.run(fd).expect("failed to close file");
             }
         }
@@ -95,15 +90,8 @@ impl<'a> DeleteFiles<'a> {
         info!(" - Open: {}", open_stats);
         info!(" - Close: {}", close_stats);
         info!(" - Unlink: {}", unlink_stats);
-        info!(
-            " - Total: {}",
-            open_stats.clone() + close_stats.clone() + unlink_stats.clone()
-        );
-        info!(
-            " - Blktrace recorded {} bytes on {} cpus",
-            trace.total_bytes(),
-            trace.num_cpus()
-        );
+        info!(" - Total: {}", open_stats.clone() + close_stats.clone() + unlink_stats.clone());
+        info!(" - Blktrace recorded {} bytes on {} cpus", trace.total_bytes(), trace.num_cpus());
         drop_cache();
         Self {
             open: open_stats,
@@ -122,10 +110,7 @@ impl<'a> DeleteFiles<'a> {
         serde_json::to_writer(File::create(path.join("open.json"))?, &self.open)?;
         serde_json::to_writer(File::create(path.join("close.json"))?, &self.close)?;
         serde_json::to_writer(File::create(path.join("unlink.json"))?, &self.unlink)?;
-        serde_json::to_writer(
-            File::create(path.join("config.json"))?,
-            &self.deletefiles_config,
-        )?;
+        serde_json::to_writer(File::create(path.join("config.json"))?, &self.deletefiles_config)?;
         self.trace.export(&path, &"blktrace")
     }
 }

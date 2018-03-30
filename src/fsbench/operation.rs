@@ -1,16 +1,16 @@
-use super::nix;
 use super::libc;
-use super::util;
+use super::nix;
 use super::statistics::Stats;
-use std::mem;
+use super::util;
 use nix::fcntl::OFlag;
 use nix::sys::stat::Mode;
-use std::os::unix::io::RawFd;
-use std::time::Instant;
-use std::path::Path;
 use std::fs;
 use std::io;
+use std::mem;
+use std::os::unix::io::RawFd;
+use std::path::Path;
 use std::sync::RwLock;
+use std::time::Instant;
 
 pub trait Operation {
     fn get_stats(&self) -> Stats;

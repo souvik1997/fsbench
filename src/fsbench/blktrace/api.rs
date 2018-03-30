@@ -29,26 +29,6 @@ pub struct BlkUserTraceSetup {
     pub pid: u32,
 }
 
-/*
-
-The trace itself
-
-struct blk_io_trace {
-  __u32 magic;		/* MAGIC << 8 | version */
-  __u32 sequence;		/* event number */
-  __u64 time;		/* in nanoseconds */
-  __u64 sector;		/* disk offset */
-  __u32 bytes;		/* transfer length */
-  __u32 action;		/* what happened */
-  __u32 pid;		/* who did it */
-  __u32 device;		/* device identifier (dev_t) */
-  __u32 cpu;		/* on what cpu did it happen */
-  __u16 error;		/* completion error */
-  __u16 pdu_len;		/* length of data after this trace */
-};
-
-*/
-
 #[repr(C)]
 pub struct BlkIOTrace {
     pub magic: u32,
@@ -62,33 +42,6 @@ pub struct BlkIOTrace {
     pub cpu: u32,
     pub error: u16,
     pub pdu_len: u16,
-}
-
-#[allow(dead_code)]
-#[repr(u16)]
-pub enum Action {
-    BlkTaQueue = 1,   /* queued */
-    BlkTaBackMerge,   /* back merged to existing rq */
-    BlkTaFrontMerge,  /* front merge to existing rq */
-    BlkTaGetRQ,       /* allocated new request */
-    BlkTaSleepRQ,     /* sleeping on rq allocation */
-    BlkTaRequeue,     /* request requeued */
-    BlkTaIssue,       /* sent to driver */
-    BlkTaComplete,    /* completed by driver */
-    BlkTaPlug,        /* queue was plugged */
-    BlkTaUnplugIO,    /* queue was unplugged by io */
-    BlkTaUnplugTimer, /* queue was unplugged by timer */
-    BlkTaInsert,      /* insert request */
-    BlkTaSplit,       /* bio was split */
-    BlkTaBounce,      /* bio was bounced */
-    BlkTaRemap,       /* bio was remapped */
-    BlkTaAbort,       /* request aborted */
-    BlkTaDrvData,     /* binary driver data */
-}
-
-pub fn blk_tc_act(category: usize) -> u32 {
-    const BLK_TC_SHIFT: usize = 16;
-    (category << BLK_TC_SHIFT) as u32
 }
 
 pub fn setup(fd: RawFd, obj: *mut BlkUserTraceSetup) -> i32 {

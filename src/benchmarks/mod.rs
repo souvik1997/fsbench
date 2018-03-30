@@ -10,8 +10,8 @@ pub mod rename;
 pub use self::rename::*;
 pub mod listdir;
 pub use self::listdir::*;
-pub mod varmail;
-pub use self::varmail::*;
+//pub mod varmail;
+//pub use self::varmail::*;
 
 pub struct BaseConfiguration<'a> {
     pub filesystem_path: &'a Path,

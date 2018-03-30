@@ -11,6 +11,12 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate tempdir;
+extern crate num;
+#[macro_use]
+extern crate num_derive;
+extern crate num_traits;
+#[macro_use]
+extern crate bitflags;
 
 mod benchmarks;
 mod fsbench;
@@ -226,8 +232,8 @@ fn get_summary<B: benchmarks::Benchmark>(
     benchmark: &B,
 ) -> Summary {
     let total = benchmark.total();
-    let reads = benchmark.get_trace().completed_reads;
-    let writes = benchmark.get_trace().completed_writes;
+    let reads = benchmark.get_trace().completed_reads();
+    let writes = benchmark.get_trace().completed_writes();
     Summary {
         name: name.to_owned(),
         duration: total.total_latency(),

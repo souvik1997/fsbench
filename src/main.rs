@@ -15,6 +15,8 @@ extern crate tempdir;
 mod benchmarks;
 mod fsbench;
 
+use std::time::Duration;
+
 fn main() {
     // Enable backtraces
     ::std::env::set_var("RUST_BACKTRACE", "1");
@@ -171,11 +173,13 @@ fn main() {
     let listdir = benchmarks::ListDir::run(&base_config, &listdir_config);
     listdir.export().expect("failed to export benchmark data");
 
+    /*
     // Varmail test, based off varmail.f from filebench
     info!("Running varmail test..");
     let varmail_config = benchmarks::VarmailConfig::load("varmail_config.json").unwrap_or(benchmarks::VarmailConfig::default());
     let varmail = benchmarks::Varmail::run(&base_config, &varmail_config);
     varmail.export().expect("failed to export benchmark data");
+    */
 
     // Unmount the device
     drop_cache();
@@ -194,37 +198,43 @@ fn main() {
     }
 
     use std::fs::File;
-    let mut summary = File::create(base_config.output_dir.join("summary.txt")).expect("failed to create summary file");
-    print_summary(&mut summary, "Createfiles", &createfiles).expect("failed to write to summary");
-    print_summary(&mut summary, "Createfiles Batch Sync", &createfiles_sync).expect("failed to write to summary");
-    print_summary(&mut summary, "Createfiles Each Sync", &createfiles_eachsync).expect("failed to write to summary");
-    print_summary(&mut summary, "Renamefiles", &renamefiles).expect("failed to write to summary");
-    print_summary(&mut summary, "Deletefiles", &deletefiles).expect("failed to write to summary");
-    print_summary(&mut summary, "Listdir", &listdir).expect("failed to write to summary");
-    print_summary(&mut summary, "Varmail", &varmail).expect("failed to write to summary");
+    let info = vec![get_summary("createfiles", &createfiles),
+                    get_summary("createfiles_batchsync", &createfiles_sync),
+                    get_summary("createfiles_eachsync", &createfiles_eachsync),
+                    get_summary("renamefiles", &renamefiles),
+                    get_summary("deletefiles", &deletefiles),
+                    get_summary("listdir", &listdir)];
+    serde_json::to_writer(
+        File::create(base_config.output_dir.join("summary.json")).expect("failed to create file"),
+        &info,
+    ).expect("failed to write to summary json");
 
     // Blktrace will be stopped by its destructor
 }
 
-fn print_summary<S: ::std::fmt::Display, B: benchmarks::Benchmark, W: ::std::io::Write>(
-    writer: &mut W,
-    name: S,
+#[derive(Serialize)]
+struct Summary {
+    name: String,
+    duration: Duration,
+    operations: usize,
+    reads: usize,
+    writes: usize,
+}
+
+fn get_summary<B: benchmarks::Benchmark>(
+    name: &str,
     benchmark: &B,
-) -> ::std::io::Result<()> {
+) -> Summary {
     let total = benchmark.total();
     let reads = benchmark.get_trace().completed_reads;
     let writes = benchmark.get_trace().completed_writes;
-    writeln!(
-        writer,
-        "{}: Operations: {}, Operations/Second: {}, Reads: {}, Writes: {}, Reads/Operation: {}, Writes/Operation: {}",
-        name,
-        total.num_ops(),
-        total.ops_per_second(),
-        reads,
-        writes,
-        (reads as f64) / (total.num_ops() as f64),
-        (writes as f64) / (total.num_ops() as f64)
-    )
+    Summary {
+        name: name.to_owned(),
+        duration: total.total_latency(),
+        operations: total.num_ops(),
+        reads: reads,
+        writes: writes,
+    }
 }
 
 fn setup_logger() -> Result<(), fern::InitError> {

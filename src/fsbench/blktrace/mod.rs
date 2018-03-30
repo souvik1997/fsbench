@@ -178,7 +178,7 @@ impl Blktrace {
 
         // Wait some time to allow IO events to accumulate
         drop_cache();
-        thread::sleep(Duration::from_millis(10000));
+        thread::sleep(Duration::from_millis(5000));
 
         // Read all events and throw them away
         let mut throwaway_data: Vec<u8> = Vec::new();
@@ -236,9 +236,9 @@ impl Blktrace {
         task();
 
         // wait some time to allow residual events to accumulate
-        thread::sleep(Duration::from_millis(5000));
+        thread::sleep(Duration::from_millis(2000));
         drop_cache();
-        thread::sleep(Duration::from_millis(5000));
+        thread::sleep(Duration::from_millis(2000));
 
         // stop the thread
         cancel_flag.store(true, Ordering::SeqCst);

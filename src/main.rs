@@ -1,3 +1,5 @@
+#![feature(duration_extras)]
+
 extern crate chrono;
 extern crate clap;
 extern crate fern;
@@ -201,6 +203,7 @@ fn main() {
 struct Summary {
     name: String,
     duration: Duration,
+    io_duration: Duration,
     operations: usize,
     reads: usize,
     writes: usize,
@@ -213,6 +216,7 @@ fn get_summary<B: benchmarks::Benchmark>(name: &str, benchmark: &B) -> Summary {
     Summary {
         name: name.to_owned(),
         duration: total.total_latency(),
+        io_duration: benchmark.get_trace().io_duration(),
         operations: total.num_ops(),
         reads: reads,
         writes: writes,

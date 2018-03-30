@@ -2,6 +2,9 @@ use super::api::BlkIOTrace;
 use std::cmp::Ordering;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
+use std::collections::HashMap;
+
 
 pub const SECTOR_SIZE: usize = 512;
 
@@ -100,10 +103,6 @@ impl Event {
             pdu: pdu,
         }
     }
-
-    pub fn ending_sector(&self) -> u64 {
-        self.sector + (self.bytes as f64 / SECTOR_SIZE as f64).ceil() as u64
-    }
 }
 
 impl Ord for Event {
@@ -139,21 +138,23 @@ fn parse(b: &[u8]) -> Vec<Event> {
         // NOTE: we do not check if the trace is valid
         index += trace.pdu_len as usize;
     }
-    events.sort();
     events
 }
 
 pub struct Trace {
     data: Vec<Vec<u8>>,
-    per_cpu_events: Vec<Vec<Event>>,
+    events: Vec<Event>,
+    elapsed: Duration,
 }
 
 impl Trace {
-    pub fn new(data: Vec<Vec<u8>>) -> Self {
-        let per_cpu_events = data.iter().map(|d| parse(&d)).collect::<Vec<_>>();
+    pub fn new(data: Vec<Vec<u8>>, elapsed: Duration) -> Self {
+        let mut events = data.iter().map(|d| parse(&d)).fold(Vec::new(), |mut acc, s| { acc.extend(s); acc });
+        events.sort();
         Self {
             data: data,
-            per_cpu_events: per_cpu_events,
+            events: events,
+            elapsed: elapsed,
         }
     }
 
@@ -211,38 +212,53 @@ impl Trace {
     }
 
     pub fn completed_reads<'a>(&'a self) -> usize {
-        self.per_cpu_events
+        self.events
             .iter()
-            .map(|events| {
-                events
-                    .iter()
-                    .filter_map(|event| {
-                        if event.category.contains(Category::COMPLETE | Category::READ) {
-                            Some(event)
-                        } else {
-                            None
-                        }
-                    })
-                    .fold(0, |acc, event| acc + event.bytes as usize)
+            .filter_map(|event| {
+                if event.category.contains(Category::READ) && event.action == Action::Complete {
+                    Some(event)
+                } else {
+                    None
+                }
             })
-            .fold(0, |acc, bytes| acc + bytes)
+            .fold(0, |acc, event| acc + event.bytes as usize)
     }
 
     pub fn completed_writes(&self) -> usize {
-        self.per_cpu_events
+        self.events
             .iter()
-            .map(|events| {
-                events
-                    .iter()
-                    .filter_map(|event| {
-                        if event.category.contains(Category::COMPLETE | Category::WRITE) {
-                            Some(event)
-                        } else {
-                            None
-                        }
-                    })
-                    .fold(0, |acc, event| acc + event.bytes as usize)
+            .filter_map(|event| {
+                if event.category.contains(Category::WRITE) && event.action == Action::Complete {
+                    Some(event)
+                } else {
+                    None
+                }
             })
-            .fold(0, |acc, bytes| acc + bytes)
+            .fold(0, |acc, event| acc + event.bytes as usize)
+    }
+
+    pub fn total_duration(&self) -> Duration {
+        self.elapsed
+    }
+
+    pub fn io_duration(&self) -> Duration {
+        // Amount of time spent on IO
+        // Count the time from queue insertion to completion
+        let mut inserted = HashMap::new();
+        let mut total_ns: u64 = 0;
+        for event in &self.events {
+            if event.action == Action::Insert {
+                inserted.insert(event.sequence, event.time);
+            } else if event.action == Action::Complete {
+                // check if we have seen this sequence number
+                match inserted.remove(&event.sequence) {
+                    Some(timestamp) => {
+                        total_ns += event.time - timestamp;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        Duration::from_nanos(total_ns)
     }
 }

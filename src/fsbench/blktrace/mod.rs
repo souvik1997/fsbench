@@ -3,6 +3,7 @@ use std::os::unix::io::RawFd;
 use std::path::{Path, PathBuf};
 use std::str;
 use std::thread;
+use std::time::Instant;
 
 type Buffer = Vec<u8>;
 
@@ -219,9 +220,10 @@ impl Blktrace {
                 }
             }
         });
-
+        let start = Instant::now();
         // run the task
         task();
+        let elapsed = start.elapsed();
 
         // wait some time to allow residual events to accumulate
         thread::sleep(Duration::from_millis(2000));
@@ -243,6 +245,7 @@ impl Blktrace {
                 .expect("failed to unwrap buffers from Arc<>")
                 .into_inner()
                 .expect("failed to get data out of rwlock"),
+            elapsed
         ))
     }
 }

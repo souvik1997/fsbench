@@ -8,7 +8,7 @@ from matplotlib import colors
 import json
 import sys
 
-order = ["ext2", "ext4", "btrfs", "f2fs", "xfs"]
+order = ["ext2", "ext4", "ext4-no-journal", "btrfs", "f2fs", "xfs"]
 patterns = ('.','', 'x', '-','\\')
 
 def parse_duration(duration):
@@ -87,21 +87,21 @@ def plot_createfiles(data):
     createfiles_duration = [parse_duration(data[fs][0]["duration"]) for fs in order]
     createfiles_batchsync_duration = [parse_duration(data[fs][1]["duration"]) for fs in order]
     createfiles_eachsync_duration = [parse_duration(data[fs][2]["duration"]) for fs in order]
-    createfiles_reads = [parse_reads(data[fs][0]["reads"]) for fs in order]
-    createfiles_batchsync_reads = [parse_reads(data[fs][1]["reads"]) for fs in order]
-    createfiles_eachsync_reads = [parse_reads(data[fs][2]["reads"]) for fs in order]
-    createfiles_writes = [parse_writes(data[fs][0]["writes"]) for fs in order]
-    createfiles_batchsync_writes = [parse_writes(data[fs][1]["writes"]) for fs in order]
-    createfiles_eachsync_writes = [parse_writes(data[fs][2]["writes"]) for fs in order]
+    createfiles_reads = [parse_reads(data[fs][0]["reads"]) / 400000 / 1024 for fs in order]
+    createfiles_batchsync_reads = [parse_reads(data[fs][1]["reads"]) / 400000 / 1024 for fs in order]
+    createfiles_eachsync_reads = [parse_reads(data[fs][2]["reads"]) / 400000 / 1024 for fs in order]
+    createfiles_writes = [parse_writes(data[fs][0]["writes"]) / 400000 / 1024 for fs in order]
+    createfiles_batchsync_writes = [parse_writes(data[fs][1]["writes"]) / 400000 / 1024 for fs in order]
+    createfiles_eachsync_writes = [parse_writes(data[fs][2]["writes"]) / 400000 / 1024 for fs in order]
 
 
     single_plot(createfiles_duration, "Create Files Duration: No fsync", "Seconds").savefig("plots/createfiles-duration.png")
     double_plot(createfiles_batchsync_duration, "Batch fsync", createfiles_eachsync_duration, "Frequent fsync", "Createfiles Duration", "Seconds").savefig("plots/createfiles-duration-sync.png")
 
-    triple_plot(createfiles_reads, "Create Files Reads: No fsync", createfiles_batchsync_reads, "Batch fsync", createfiles_eachsync_reads, "Frequent fsync", "Createfiles Reads", "Bytes").savefig("plots/createfiles-reads.png")
+    triple_plot(createfiles_reads, "Create Files Reads: No fsync", createfiles_batchsync_reads, "Batch fsync", createfiles_eachsync_reads, "Frequent fsync", "Createfiles Reads", "KiB/File").savefig("plots/createfiles-reads.png")
 
-    single_plot(createfiles_writes, "Create Files Writes: No fsync", "Bytes").savefig("plots/createfiles-writes.png")
-    double_plot(createfiles_batchsync_writes, "Batch fsync", createfiles_eachsync_writes, "Frequent fsync", "Createfiles Writes", "Bytes").savefig("plots/createfiles-writes-sync.png")
+    single_plot(createfiles_writes, "Create Files Writes: No fsync", "KiB/File").savefig("plots/createfiles-writes.png")
+    double_plot(createfiles_batchsync_writes, "Batch fsync", createfiles_eachsync_writes, "Frequent fsync", "Createfiles Writes", "KiB/File").savefig("plots/createfiles-writes-sync.png")
 
 def plot_renamefiles(data):
     renamefiles_duration = [parse_duration(data[fs][3]["duration"]) for fs in order]
@@ -132,13 +132,14 @@ def main():
     data["btrfs"] = json.load(open("btrfs/summary.json", "r"))
     data["f2fs"] = json.load(open("f2fs/summary.json", "r"))
     data["xfs"] = json.load(open("xfs/summary.json", "r"))
-    #plot_createfiles(data)
-    #plot_renamefiles(data)
-    #plot_deletefiles(data)
-    #plot_listdir(data)
+    data["ext4-no-journal"] = json.load(open("ext4-no-journal/summary.json", "r"))
+    plot_createfiles(data)
+    plot_renamefiles(data)
+    plot_deletefiles(data)
+    plot_listdir(data)
     plot_poster(data)
 
-    #plt.show()
+    plt.show()
 
 if __name__ == "__main__":
     main()

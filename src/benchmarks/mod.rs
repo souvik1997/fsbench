@@ -15,7 +15,7 @@ pub use self::listdir::*;
 
 pub struct BaseConfiguration<'a> {
     pub filesystem_path: &'a Path,
-    pub blktrace: fsbench::blktrace::Blktrace,
+    pub blktrace: &'a fsbench::blktrace::Blktrace,
     pub output_dir: PathBuf,
 }
 
@@ -27,4 +27,4 @@ pub trait Benchmark {
 }
 
 const DEFAULT_DIR_WIDTH: usize = 7;
-const DEFAULT_NUM_FILES: usize = 100000;
+const DEFAULT_NUM_FILES: usize = 400000;

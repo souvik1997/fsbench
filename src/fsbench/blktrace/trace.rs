@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use std::collections::HashMap;
+use std::collections::*;
 
 
 pub const SECTOR_SIZE: usize = 512;
@@ -188,6 +188,7 @@ impl Trace {
                 }
             }
         }
+        /*
         let blkparse = Command::new("blkparse")
             .args(&[path.as_ref().join(prefix).to_str().expect("failed to convert path to string")])
             .output();
@@ -209,6 +210,8 @@ impl Trace {
                 Ok(())
             }
         }
+         */
+        Ok(())
     }
 
     pub fn completed_reads<'a>(&'a self) -> usize {
@@ -253,6 +256,7 @@ impl Trace {
                 // check if we have seen this sequence number
                 match inserted.remove(&event.sequence) {
                     Some(timestamp) => {
+                        assert!(event.time > timestamp);
                         total_ns += event.time - timestamp;
                     }
                     _ => {}
@@ -260,5 +264,15 @@ impl Trace {
             }
         }
         Duration::from_nanos(total_ns)
+    }
+
+    pub fn num_requests(&self) -> usize {
+        let mut sequences = HashSet::new();
+        for event in &self.events {
+            if !sequences.contains(&event.sequence) {
+                sequences.insert(event.sequence);
+            }
+        }
+        sequences.len()
     }
 }

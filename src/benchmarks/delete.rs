@@ -1,5 +1,6 @@
 use super::BaseConfiguration;
 use super::Benchmark;
+use super::Config;
 use super::fsbench::blktrace::*;
 use super::fsbench::fileset::*;
 use super::fsbench::operation::*;
@@ -38,13 +39,15 @@ impl DeleteFilesConfig {
     }
 }
 
-impl Default for DeleteFilesConfig {
-    fn default() -> Self {
+impl Config for DeleteFilesConfig {
+    fn config_for(_fs: &Filesystem) -> Self {
         Self {
             num_files: super::DEFAULT_NUM_FILES,
             dir_width: super::DEFAULT_DIR_WIDTH,
         }
     }
+
+    fn num_files(&self) -> usize { self.num_files }
 }
 
 impl<'a> DeleteFiles<'a> {
@@ -115,12 +118,16 @@ impl<'a> DeleteFiles<'a> {
     }
 }
 
-impl<'a> Benchmark for DeleteFiles<'a> {
+impl<'a> Benchmark<DeleteFilesConfig> for DeleteFiles<'a> {
     fn total(&self) -> Stats {
         self.open.clone() + self.close.clone() + self.unlink.clone()
     }
 
     fn get_trace<'b>(&'b self) -> &'b Trace {
         &self.trace
+    }
+
+    fn get_config<'b>(&'b self) -> &'b DeleteFilesConfig {
+        &self.deletefiles_config
     }
 }

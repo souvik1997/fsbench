@@ -1,5 +1,6 @@
 use super::BaseConfiguration;
 use super::Benchmark;
+use super::Config;
 use super::fsbench::blktrace::*;
 use super::fsbench::fileset::*;
 use super::fsbench::operation::*;
@@ -26,13 +27,29 @@ impl CreateFilesConfig {
     }
 }
 
-impl Default for CreateFilesConfig {
-    fn default() -> Self {
-        Self {
-            num_files: super::DEFAULT_NUM_FILES,
-            dir_width: super::DEFAULT_DIR_WIDTH,
+
+const EXT4_DIR_WIDTH: usize = 7;
+const EXT4_NUM_FILES: usize = 30000;
+
+impl Config for CreateFilesConfig {
+    fn config_for(fs: &Filesystem) -> Self {
+        match fs {
+            &Filesystem::Ext4 | &Filesystem::Ext4NoJournal => {
+                Self {
+                    num_files: EXT4_NUM_FILES,
+                    dir_width: EXT4_DIR_WIDTH,
+                }
+            },
+            _ => {
+                Self {
+                    num_files: super::DEFAULT_NUM_FILES,
+                    dir_width: super::DEFAULT_DIR_WIDTH,
+                }
+            }
         }
     }
+
+    fn num_files(&self) -> usize { self.num_files }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -51,14 +68,20 @@ impl CreateFilesBatchSyncConfig {
     }
 }
 
-impl Default for CreateFilesBatchSyncConfig {
-    fn default() -> Self {
-        Self {
-            num_files: super::DEFAULT_NUM_FILES,
-            dir_width: super::DEFAULT_DIR_WIDTH,
-            batch_size: 10,
+impl Config for CreateFilesBatchSyncConfig {
+    fn config_for(fs: &Filesystem) -> Self {
+        match fs {
+            _ => {
+                Self {
+                    num_files: super::DEFAULT_NUM_FILES,
+                    dir_width: super::DEFAULT_DIR_WIDTH,
+                    batch_size: 10,
+                }
+            }
         }
     }
+
+    fn num_files(&self) -> usize { self.num_files }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -76,13 +99,19 @@ impl CreateFilesEachSyncConfig {
     }
 }
 
-impl Default for CreateFilesEachSyncConfig {
-    fn default() -> Self {
-        Self {
-            num_files: super::DEFAULT_NUM_FILES,
-            dir_width: super::DEFAULT_DIR_WIDTH,
+impl Config for CreateFilesEachSyncConfig {
+    fn config_for(fs: &Filesystem) -> Self {
+        match fs {
+            _ => {
+                Self {
+                    num_files: super::DEFAULT_NUM_FILES,
+                    dir_width: super::DEFAULT_DIR_WIDTH,
+                }
+            }
         }
     }
+
+    fn num_files(&self) -> usize { self.num_files }
 }
 
 pub struct CreateFiles<'a> {
@@ -126,13 +155,16 @@ impl<'a> CreateFiles<'a> {
     }
 }
 
-impl<'a> Benchmark for CreateFiles<'a> {
+impl<'a> Benchmark<CreateFilesConfig> for CreateFiles<'a> {
     fn total(&self) -> Stats {
         self.data.total()
     }
 
     fn get_trace<'b>(&'b self) -> &'b Trace {
         &self.data.trace
+    }
+    fn get_config<'b>(&'b self) -> &'b CreateFilesConfig {
+        &self.createfiles_config
     }
 }
 
@@ -159,13 +191,17 @@ impl<'a> CreateFilesBatchSync<'a> {
     }
 }
 
-impl<'a> Benchmark for CreateFilesBatchSync<'a> {
+impl<'a> Benchmark<CreateFilesBatchSyncConfig> for CreateFilesBatchSync<'a> {
     fn total(&self) -> Stats {
         self.data.total()
     }
 
     fn get_trace<'b>(&'b self) -> &'b Trace {
         &self.data.trace
+    }
+
+    fn get_config<'b>(&'b self) -> &'b CreateFilesBatchSyncConfig {
+        &self.createfiles_config
     }
 }
 
@@ -192,13 +228,17 @@ impl<'a> CreateFilesEachSync<'a> {
     }
 }
 
-impl<'a> Benchmark for CreateFilesEachSync<'a> {
+impl<'a> Benchmark<CreateFilesEachSyncConfig> for CreateFilesEachSync<'a> {
     fn total(&self) -> Stats {
         self.data.total()
     }
 
     fn get_trace<'b>(&'b self) -> &'b Trace {
         &self.data.trace
+    }
+
+    fn get_config<'b>(&'b self) -> &'b CreateFilesEachSyncConfig {
+        &self.createfiles_config
     }
 }
 

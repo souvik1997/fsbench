@@ -1,5 +1,6 @@
 use super::BaseConfiguration;
 use super::Benchmark;
+use super::Config;
 use super::fsbench::blktrace::*;
 use super::fsbench::fileset::*;
 use super::fsbench::operation::*;
@@ -39,13 +40,15 @@ impl RenameFilesConfig {
     }
 }
 
-impl Default for RenameFilesConfig {
-    fn default() -> Self {
+impl Config for RenameFilesConfig {
+    fn config_for(_fs: &Filesystem) -> Self {
         Self {
             num_files: super::DEFAULT_NUM_FILES,
             dir_width: super::DEFAULT_DIR_WIDTH,
         }
     }
+
+    fn num_files(&self) -> usize { self.num_files }
 }
 
 impl<'a> RenameFiles<'a> {
@@ -75,8 +78,8 @@ impl<'a> RenameFiles<'a> {
             .blktrace
             .record_with(|| {
                 for file in &file_set_shuffled {
-                    // Rename /path/to/file to /path/to/file.data
-                    let new_path = file.with_extension("data");
+                    // Rename /path/to/file to /path/to/file.rename
+                    let new_path = file.with_extension("_rename");
                     rename.run(file, &new_path).expect("failed to rename file");
                 }
             })
@@ -114,12 +117,16 @@ impl<'a> RenameFiles<'a> {
     }
 }
 
-impl<'a> Benchmark for RenameFiles<'a> {
+impl<'a> Benchmark<RenameFilesConfig> for RenameFiles<'a> {
     fn total(&self) -> Stats {
         self.open.clone() + self.close.clone() + self.rename.clone()
     }
 
     fn get_trace<'b>(&'b self) -> &'b Trace {
         &self.trace
+    }
+
+    fn get_config<'b>(&'b self) -> &'b RenameFilesConfig {
+        &self.renamefiles_config
     }
 }

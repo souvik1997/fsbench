@@ -1,5 +1,6 @@
 use super::BaseConfiguration;
 use super::Benchmark;
+use super::Config;
 use super::fsbench::blktrace::*;
 use super::fsbench::fileset::*;
 use super::fsbench::operation::*;
@@ -39,13 +40,15 @@ impl ListDirConfig {
     }
 }
 
-impl Default for ListDirConfig {
-    fn default() -> Self {
+impl Config for ListDirConfig {
+    fn config_for(_fs: &Filesystem) -> Self {
         Self {
             num_files: super::DEFAULT_NUM_FILES,
             dir_width: super::DEFAULT_DIR_WIDTH,
         }
     }
+
+    fn num_files(&self) -> usize { self.num_files }
 }
 
 impl<'a> ListDir<'a> {
@@ -118,12 +121,16 @@ impl<'a> ListDir<'a> {
     }
 }
 
-impl<'a> Benchmark for ListDir<'a> {
+impl<'a> Benchmark<ListDirConfig> for ListDir<'a> {
     fn total(&self) -> Stats {
         self.open.clone() + self.close.clone() + self.readdir.clone()
     }
 
     fn get_trace<'b>(&'b self) -> &'b Trace {
         &self.trace
+    }
+
+    fn get_config<'b>(&'b self) -> &'b ListDirConfig {
+        &self.listdir_config
     }
 }

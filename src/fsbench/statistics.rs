@@ -5,6 +5,7 @@ use std::time::Duration;
 pub struct Stats {
     latency: Vec<Duration>,
     bytes: Vec<usize>,
+    iowait: Vec<usize>,
 }
 
 impl Stats {
@@ -12,6 +13,7 @@ impl Stats {
         Stats {
             latency: Vec::new(),
             bytes: Vec::new(),
+            iowait: Vec::new(),
         }
     }
 
@@ -23,9 +25,14 @@ impl Stats {
         return self.bytes.iter().fold(0, |acc, s| acc + s);
     }
 
-    pub fn record(&mut self, latency: Duration, bytes: usize) {
+    pub fn total_iowait(&self) -> usize {
+        return self.iowait.iter().fold(0, |acc, s| acc + s);
+    }
+
+    pub fn record(&mut self, latency: Duration, bytes: usize, iowait: usize) {
         self.latency.push(latency);
         self.bytes.push(bytes);
+        self.iowait.push(iowait);
     }
 
     pub fn num_ops(&self) -> usize {
@@ -71,6 +78,7 @@ impl ::std::ops::Add for Stats {
         Stats {
             latency: [&self.latency[..], &rhs.latency[..]].concat(),
             bytes: [&self.bytes[..], &rhs.bytes[..]].concat(),
+            iowait: [&self.iowait[..], &rhs.iowait[..]].concat(),
         }
     }
 }

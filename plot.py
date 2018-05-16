@@ -20,6 +20,12 @@ def parse_reads(reads):
 def parse_writes(writes):
     return int(writes)
 
+def parse_numfiles(numfiles):
+    return int(numfiles)
+
+def parse_iowait(iowait):
+    return int(iowait)
+
 def triple_plot(first, first_label, second, second_label, third, third_label, title, ylabel):
     width = 0.2
     ind = np.arange(len(order))
@@ -75,28 +81,32 @@ def single_plot(data, title, ylabel):
 
 
 def plot_poster(data):
-    createfiles_eachsync_duration = [100000.0 / parse_duration(data[fs][2]["duration"]) for fs in order]
-    createfiles_eachsync_reads = [parse_reads(data[fs][2]["reads"]) / 1024.0 / 100000.0 for fs in order]
-    createfiles_eachsync_writes = [parse_writes(data[fs][2]["writes"]) / 1024.0 / 100000.0 for fs in order]
+    createfiles_eachsync_duration = [parse_numfiles(data[fs][2]["num_files"]) / parse_duration(data[fs][2]["duration"]) for fs in order]
+    createfiles_eachsync_reads = [parse_reads(data[fs][2]["reads"]) / 1024.0 / parse_numfiles(data[fs][2]["num_files"]) for fs in order]
+    createfiles_eachsync_writes = [parse_writes(data[fs][2]["writes"]) / 1024.0 / parse_numfiles(data[fs][2]["num_files"]) for fs in order]
     single_plot(createfiles_eachsync_duration, "Create Files: Throughput", "Files/Second").savefig("plots/poster-createfiles-duration.png")
     single_plot(createfiles_eachsync_reads, "Create Files: Reads", "KiB/File").savefig("plots/poster-createfiles-reads.png")
     single_plot(createfiles_eachsync_writes, "Create Files: Writes", "KiB/File").savefig("plots/poster-createfiles-writes.png")
 
 def plot_createfiles(data):
     # Plot duration
-    createfiles_duration = [parse_duration(data[fs][0]["duration"]) for fs in order]
-    createfiles_batchsync_duration = [parse_duration(data[fs][1]["duration"]) for fs in order]
-    createfiles_eachsync_duration = [parse_duration(data[fs][2]["duration"]) for fs in order]
-    createfiles_reads = [parse_reads(data[fs][0]["reads"]) / 400000 / 1024 for fs in order]
-    createfiles_batchsync_reads = [parse_reads(data[fs][1]["reads"]) / 400000 / 1024 for fs in order]
-    createfiles_eachsync_reads = [parse_reads(data[fs][2]["reads"]) / 400000 / 1024 for fs in order]
-    createfiles_writes = [parse_writes(data[fs][0]["writes"]) / 400000 / 1024 for fs in order]
-    createfiles_batchsync_writes = [parse_writes(data[fs][1]["writes"]) / 400000 / 1024 for fs in order]
-    createfiles_eachsync_writes = [parse_writes(data[fs][2]["writes"]) / 400000 / 1024 for fs in order]
+    createfiles_throughput = [float(parse_numfiles(data[fs][0]["num_files"])) / parse_duration(data[fs][0]["duration"]) for fs in order]
+    createfiles_reads = [parse_reads(data[fs][0]["reads"]) / float(parse_numfiles(data[fs][0]["num_files"])) / 1024 for fs in order]
+    createfiles_writes = [parse_writes(data[fs][0]["writes"]) / float(parse_numfiles(data[fs][0]["num_files"])) / 1024 for fs in order]
+    createfiles_iowait = [parse_iowait(data[fs][0]["iowait"]) / float(parse_numfiles(data[fs][0]["num_files"])) for fs in order]
+    createfiles_batchsync_throughput = [float(parse_numfiles(data[fs][1]["num_files"])) / parse_duration(data[fs][1]["duration"]) for fs in order]
+    createfiles_batchsync_reads = [parse_reads(data[fs][1]["reads"]) / float(parse_numfiles(data[fs][1]["num_files"])) / 1024 for fs in order]
+    createfiles_batchsync_writes = [parse_writes(data[fs][1]["writes"]) / float(parse_numfiles(data[fs][1]["num_files"])) / 1024 for fs in order]
+    createfiles_batchsync_iowait = [parse_iowait(data[fs][1]["iowait"]) / float(parse_numfiles(data[fs][1]["num_files"])) for fs in order]
+    createfiles_eachsync_throughput = [float(parse_numfiles(data[fs][2]["num_files"])) / parse_duration(data[fs][2]["duration"]) for fs in order]
+    createfiles_eachsync_reads = [parse_reads(data[fs][2]["reads"]) / float(parse_numfiles(data[fs][2]["num_files"])) / 1024 for fs in order]
+    createfiles_eachsync_writes = [parse_writes(data[fs][2]["writes"]) / float(parse_numfiles(data[fs][2]["num_files"])) / 1024 for fs in order]
+    createfiles_eachsync_iowait = [parse_iowait(data[fs][2]["iowait"]) / float(parse_numfiles(data[fs][2]["num_files"])) for fs in order]
 
-
-    single_plot(createfiles_duration, "Create Files Duration: No fsync", "Seconds").savefig("plots/createfiles-duration.png")
-    double_plot(createfiles_batchsync_duration, "Batch fsync", createfiles_eachsync_duration, "Frequent fsync", "Createfiles Duration", "Seconds").savefig("plots/createfiles-duration-sync.png")
+    single_plot(createfiles_throughput, "Create Files throughput: No fsync", "Files/Second").savefig("plots/createfiles-duration.png")
+    single_plot(createfiles_iowait, "Create Files IOwait: No fsync", "ns/file").savefig("plots/createfiles-iowait.png")
+    double_plot(createfiles_batchsync_throughput, "Batch fsync", createfiles_eachsync_throughput, "Frequent fsync", "Create files throughput", "Files/Second").savefig("plots/createfiles-duration-sync.png")
+    double_plot(createfiles_batchsync_iowait, "Batch fsync", createfiles_eachsync_iowait, "Frequent fsync", "Create files IOwait", "ns/file").savefig("plots/createfiles-iowait-sync.png")
 
     triple_plot(createfiles_reads, "Create Files Reads: No fsync", createfiles_batchsync_reads, "Batch fsync", createfiles_eachsync_reads, "Frequent fsync", "Createfiles Reads", "KiB/File").savefig("plots/createfiles-reads.png")
 
@@ -104,25 +114,25 @@ def plot_createfiles(data):
     double_plot(createfiles_batchsync_writes, "Batch fsync", createfiles_eachsync_writes, "Frequent fsync", "Createfiles Writes", "KiB/File").savefig("plots/createfiles-writes-sync.png")
 
 def plot_renamefiles(data):
-    renamefiles_duration = [parse_duration(data[fs][3]["duration"]) for fs in order]
-    renamefiles_reads = [parse_reads(data[fs][3]["reads"]) for fs in order]
-    renamefiles_writes = [parse_writes(data[fs][3]["writes"]) for fs in order]
-    single_plot(renamefiles_duration, "Renamefiles Duration", "Seconds").savefig("plots/renamefiles-duration.png")
-    double_plot(renamefiles_reads, "Reads", renamefiles_writes, "Writes", "Rename IO", "Bytes").savefig("plots/renamefiles-io.png")
+    renamefiles_throughput = [float(parse_numfiles(data[fs][3]["num_files"])) / parse_duration(data[fs][3]["duration"]) for fs in order]
+    renamefiles_reads = [parse_reads(data[fs][3]["reads"]) / float(parse_numfiles(data[fs][3]["num_files"])) / 1024 for fs in order]
+    renamefiles_writes = [parse_writes(data[fs][3]["writes"]) / float(parse_numfiles(data[fs][3]["num_files"])) / 1024 for fs in order]
+    single_plot(renamefiles_throughput, "Rename Files Throughput", "Files/Second").savefig("plots/renamefiles-throughput.png")
+    double_plot(renamefiles_reads, "Reads", renamefiles_writes, "Writes", "Rename IO", "KiB/File").savefig("plots/renamefiles-io.png")
 
 def plot_deletefiles(data):
-    deletefiles_duration = [parse_duration(data[fs][4]["duration"]) for fs in order]
-    deletefiles_reads = [parse_reads(data[fs][4]["reads"]) for fs in order]
-    deletefiles_writes = [parse_writes(data[fs][4]["writes"]) for fs in order]
-    single_plot(deletefiles_duration, "Deletefiles Duration", "Seconds").savefig("plots/deletefiles-duration.png")
-    double_plot(deletefiles_reads, "Reads", deletefiles_writes, "Writes", "Delete IO", "Bytes").savefig("plots/deletefiles-io.png")
+    deletefiles_throughput = [float(parse_numfiles(data[fs][4]["num_files"])) / parse_duration(data[fs][4]["duration"]) for fs in order]
+    deletefiles_reads = [parse_reads(data[fs][4]["reads"]) / float(parse_numfiles(data[fs][4]["num_files"])) / 1024 for fs in order]
+    deletefiles_writes = [parse_writes(data[fs][4]["writes"]) / float(parse_numfiles(data[fs][4]["num_files"])) / 1024 for fs in order]
+    single_plot(deletefiles_throughput, "Delete Files Throughput", "Files/Second").savefig("plots/deletefiles-throughput.png")
+    double_plot(deletefiles_reads, "Reads", deletefiles_writes, "Writes", "Delete IO", "KiB/File").savefig("plots/deletefiles-io.png")
 
 def plot_listdir(data):
-    listdirfiles_duration = [parse_duration(data[fs][5]["duration"]) for fs in order]
-    listdirfiles_reads = [parse_reads(data[fs][5]["reads"]) for fs in order]
-    listdirfiles_writes = [parse_writes(data[fs][5]["writes"]) for fs in order]
-    single_plot(listdirfiles_duration, "Listdir Duration", "Seconds").savefig("plots/listdir-duration.png")
-    double_plot(listdirfiles_reads, "Reads", listdirfiles_writes, "Writes", "Listdir IO", "Bytes").savefig("plots/listdir-io.png")
+    listdirfiles_throughput = [float(parse_numfiles(data[fs][5]["num_files"])) / parse_duration(data[fs][5]["duration"]) for fs in order]
+    listdirfiles_reads = [parse_reads(data[fs][5]["reads"]) / float(parse_numfiles(data[fs][5]["num_files"])) / 1024 for fs in order]
+    listdirfiles_writes = [parse_writes(data[fs][5]["writes"]) / float(parse_numfiles(data[fs][5]["num_files"])) / 1024 for fs in order]
+    single_plot(listdirfiles_throughput, "Listdir Files Throughput", "Files/Second").savefig("plots/listdirfiles-throughput.png")
+    double_plot(listdirfiles_reads, "Reads", listdirfiles_writes, "Writes", "Listdir IO", "KiB/File").savefig("plots/listdirfiles-io.png")
 
 
 def main():

@@ -20,6 +20,24 @@ pub struct Open {
     stats: RwLock<Stats>,
 }
 
+fn get_iowait() -> usize {
+    use std::fs::File;
+    use std::io::Read;
+    use std::str;
+    let f = File::open("/proc/stat").expect("failed to open /proc/stats");
+    let split_string = vec![String::new()];
+    let first_line_bytes = f.bytes().take_while(|c| {
+        match c {
+            &Ok(ref ch) => *ch != '\n' as u8,
+            &_ => false,
+        }
+    }).map(|c| c.unwrap()).collect::<Vec<u8>>();
+    let first_line = str::from_utf8(&first_line_bytes).expect("failed to parse bytes as utf8");
+    let mut split = first_line.split_whitespace();
+    let iowait: Option<usize> = split.nth(5).and_then(|s| s.parse().ok()); // 6th column is iowait
+    iowait.expect("failed to read iowait")
+}
+
 impl Open {
     pub fn new() -> Open {
         Open {
@@ -29,10 +47,12 @@ impl Open {
 
     pub fn run<P: ?Sized + nix::NixPath>(&mut self, path: &P, oflag: OFlag, mode: Mode) -> nix::Result<RawFd> {
         let mut stats = self.stats.write().unwrap();
+        let start_iowait = get_iowait();
         let start = Instant::now();
         match nix::fcntl::open(path, oflag, mode) {
             Ok(fd) => {
-                stats.record(start.elapsed(), 0);
+                let elapsed = start.elapsed();
+                stats.record(elapsed, 0, get_iowait() - start_iowait);
                 Ok(fd)
             }
             Err(e) => Err(e),
@@ -59,10 +79,12 @@ impl Close {
 
     pub fn run(&mut self, fd: RawFd) -> nix::Result<()> {
         let mut stats = self.stats.write().unwrap();
+        let start_iowait = get_iowait();
         let start = Instant::now();
         match nix::unistd::close(fd) {
             Ok(()) => {
-                stats.record(start.elapsed(), 0);
+                let elapsed = start.elapsed();
+                stats.record(elapsed, 0, get_iowait() - start_iowait);
                 Ok(())
             }
             Err(e) => Err(e),
@@ -89,10 +111,12 @@ impl Fsync {
 
     pub fn run(&mut self, fd: RawFd) -> nix::Result<()> {
         let mut stats = self.stats.write().unwrap();
+        let start_iowait = get_iowait();
         let start = Instant::now();
         match nix::unistd::fsync(fd) {
             Ok(()) => {
-                stats.record(start.elapsed(), 0);
+                let elapsed = start.elapsed();
+                stats.record(elapsed, 0, get_iowait() - start_iowait);
                 Ok(())
             }
             Err(e) => Err(e),
@@ -119,9 +143,11 @@ impl Sync {
 
     pub fn run(&mut self) {
         let mut stats = self.stats.write().unwrap();
+        let start_iowait = get_iowait();
         let start = Instant::now();
         util::sync_all();
-        stats.record(start.elapsed(), 0);
+        let elapsed = start.elapsed();
+        stats.record(elapsed, 0, get_iowait() - start_iowait);
     }
 }
 
@@ -144,10 +170,12 @@ impl Read {
 
     pub fn run(&mut self, fd: RawFd, buf: &mut [u8]) -> nix::Result<usize> {
         let mut stats = self.stats.write().unwrap();
+        let start_iowait = get_iowait();
         let start = Instant::now();
         match nix::unistd::read(fd, buf) {
             Ok(bytes_read) => {
-                stats.record(start.elapsed(), bytes_read);
+                let elapsed = start.elapsed();
+                stats.record(elapsed, bytes_read, get_iowait() - start_iowait);
                 Ok(bytes_read)
             }
             Err(e) => Err(e),
@@ -174,10 +202,12 @@ impl Write {
 
     pub fn run(&mut self, fd: RawFd, buf: &[u8]) -> nix::Result<usize> {
         let mut stats = self.stats.write().unwrap();
+        let start_iowait = get_iowait();
         let start = Instant::now();
         match nix::unistd::write(fd, buf) {
             Ok(bytes_written) => {
-                stats.record(start.elapsed(), bytes_written);
+                let elapsed = start.elapsed();
+                stats.record(elapsed, bytes_written, get_iowait() - start_iowait);
                 Ok(bytes_written)
             }
             Err(e) => Err(e),
@@ -204,10 +234,12 @@ impl Unlink {
 
     pub fn run<P: ?Sized + nix::NixPath>(&mut self, path: &P) -> nix::Result<()> {
         let mut stats = self.stats.write().unwrap();
+        let start_iowait = get_iowait();
         let start = Instant::now();
         match nix::unistd::unlink(path) {
             Ok(()) => {
-                stats.record(start.elapsed(), 0);
+                let elapsed = start.elapsed();
+                stats.record(elapsed, 0, get_iowait() - start_iowait);
                 Ok(())
             }
             Err(e) => Err(e),
@@ -234,10 +266,12 @@ impl Rename {
 
     pub fn run<P: AsRef<Path>, Q: AsRef<Path>>(&mut self, from_path: &P, to_path: &Q) -> io::Result<()> {
         let mut stats = self.stats.write().unwrap();
+        let start_iowait = get_iowait();
         let start = Instant::now();
         match fs::rename(from_path, to_path) {
             Ok(()) => {
-                stats.record(start.elapsed(), 0);
+                let elapsed = start.elapsed();
+                stats.record(elapsed, 0, get_iowait() - start_iowait);
                 Ok(())
             }
             Err(e) => Err(e),
@@ -265,6 +299,7 @@ impl ReadDir {
     pub fn run<P: AsRef<Path> + ::std::fmt::Debug>(&mut self, path: P) -> io::Result<()> {
         let mut stats = self.stats.write().unwrap();
         let readdir = fs::read_dir(path)?;
+        let start_iowait = get_iowait();
         let start = Instant::now();
         let mut bytes = 0;
         for entry in readdir {
@@ -273,7 +308,8 @@ impl ReadDir {
                 Err(e) => return Err(e),
             }
         }
-        stats.record(start.elapsed(), bytes);
+        let elapsed = start.elapsed();
+        stats.record(elapsed, 0, get_iowait() - start_iowait);
         Ok(())
     }
 }

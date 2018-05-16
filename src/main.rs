@@ -32,6 +32,7 @@ fn main() {
     use fsbench::blktrace::*;
     use fsbench::mount::Mount;
     use fsbench::util::{drop_cache, mkfs, Filesystem};
+    use benchmarks::Config;
     use std::path::PathBuf;
     setup_logger().expect("failed to setup logger");
     let matches = clap::App::new("Filesystem Benchmark")
@@ -101,7 +102,7 @@ fn main() {
 
 
 
-    let filesystems = [Filesystem::Ext2, Filesystem::Ext4, Filesystem::Ext4NoJournal, Filesystem::Xfs, Filesystem::Btrfs, Filesystem::F2fs];
+    let filesystems = [Filesystem::Ext4, Filesystem::Ext4NoJournal, Filesystem::F2fs, Filesystem::Btrfs, Filesystem::Xfs, Filesystem::Ext2];
     for fstype in filesystems.into_iter() {
         let base_config = benchmarks::BaseConfiguration {
             filesystem_path: &filesystem_path,
@@ -113,23 +114,22 @@ fn main() {
 
         // Standard createfiles test with no fsync
         let createfiles_config =
-            benchmarks::CreateFilesConfig::load("createfiles_config.json").unwrap_or(benchmarks::CreateFilesConfig::default());
+            benchmarks::CreateFilesConfig::load("createfiles_config.json").unwrap_or(benchmarks::CreateFilesConfig::config_for(fstype));
 
         let createfiles = {
             mkfs(device, fstype);
-            let m = Mount::new(device, filesystem_path_str);
+            let _m = Mount::new(device, filesystem_path_str);
             info!("Running create test (end sync)..");
             let createfiles = benchmarks::CreateFiles::run(&base_config, &createfiles_config);
             createfiles.export().expect("failed to export benchmark data");
             createfiles
         };
 
-
         let createfiles_sync_config = benchmarks::CreateFilesBatchSyncConfig::load("createfiles_batchsync.json")
-            .unwrap_or(benchmarks::CreateFilesBatchSyncConfig::default());
+            .unwrap_or(benchmarks::CreateFilesBatchSyncConfig::config_for(fstype));
         let createfiles_sync = {
             mkfs(device, fstype);
-            let m = Mount::new(device, filesystem_path_str);
+            let _m = Mount::new(device, filesystem_path_str);
             // Create files, but fsync after every 10 files
             info!("Running create test (intermittent fsync)..");
             let createfiles_sync = benchmarks::CreateFilesBatchSync::run(&base_config, &createfiles_sync_config);
@@ -138,10 +138,10 @@ fn main() {
         };
 
         let createfiles_eachsync_config = benchmarks::CreateFilesEachSyncConfig::load("createfiles_eachsync.json")
-            .unwrap_or(benchmarks::CreateFilesEachSyncConfig::default());
+            .unwrap_or(benchmarks::CreateFilesEachSyncConfig::config_for(fstype));
         let createfiles_eachsync = {
             mkfs(device, fstype);
-            let m = Mount::new(device, filesystem_path_str);
+            let _m = Mount::new(device, filesystem_path_str);
             // Create files, but fsync after every file
             info!("Running create test (frequent fsync)..");
             let createfiles_eachsync = benchmarks::CreateFilesEachSync::run(&base_config, &createfiles_eachsync_config);
@@ -150,10 +150,10 @@ fn main() {
         };
 
         let renamefiles_config =
-            benchmarks::RenameFilesConfig::load("renamefiles_config.json").unwrap_or(benchmarks::RenameFilesConfig::default());
+            benchmarks::RenameFilesConfig::load("renamefiles_config.json").unwrap_or(benchmarks::RenameFilesConfig::config_for(fstype));
         let renamefiles = {
             mkfs(device, fstype);
-            let m = Mount::new(device, filesystem_path_str);
+            let _m = Mount::new(device, filesystem_path_str);
             // Rename files test
             info!("Running rename test..");
             let renamefiles = benchmarks::RenameFiles::run(&base_config, &renamefiles_config);
@@ -162,10 +162,10 @@ fn main() {
         };
 
         let deletefiles_config =
-            benchmarks::DeleteFilesConfig::load("deletefiles_config.json").unwrap_or(benchmarks::DeleteFilesConfig::default());
+            benchmarks::DeleteFilesConfig::load("deletefiles_config.json").unwrap_or(benchmarks::DeleteFilesConfig::config_for(fstype));
         let deletefiles =  {
             mkfs(device, fstype);
-            let m = Mount::new(device, filesystem_path_str);
+            let _m = Mount::new(device, filesystem_path_str);
             // Delete files test
             // NOTE: filebench has a removedirs.f workload, but this actually only calls rmdir() and _does not_
             // recursively delete files
@@ -175,10 +175,10 @@ fn main() {
             deletefiles
         };
 
-        let listdir_config = benchmarks::ListDirConfig::load("listdir_config.json").unwrap_or(benchmarks::ListDirConfig::default());
+        let listdir_config = benchmarks::ListDirConfig::load("listdir_config.json").unwrap_or(benchmarks::ListDirConfig::config_for(fstype));
         let listdir = {
             mkfs(device, fstype);
-            let m = Mount::new(device, filesystem_path_str);
+            let _m = Mount::new(device, filesystem_path_str);
             // Listdir test
             info!("Running listdir test..");
             let listdir = benchmarks::ListDir::run(&base_config, &listdir_config);
@@ -189,7 +189,7 @@ fn main() {
         /*
         // Varmail test, based off varmail.f from filebench
         info!("Running varmail test..");
-        let varmail_config = benchmarks::VarmailConfig::load("varmail_config.json").unwrap_or(benchmarks::VarmailConfig::default());
+        let varmail_config = benchmarks::VarmailConfig::load("varmail_config.json").unwrap_or(benchmarks::VarmailConfig::config_for(fstype));
         let varmail = benchmarks::Varmail::run(&base_config, &varmail_config);
         varmail.export().expect("failed to export benchmark data");
          */
@@ -222,9 +222,11 @@ struct Summary {
     operations: usize,
     reads: usize,
     writes: usize,
+    num_files: usize,
+    iowait: usize,
 }
 
-fn get_summary<B: benchmarks::Benchmark>(name: &str, benchmark: &B) -> Summary {
+fn get_summary<C: benchmarks::Config, B: benchmarks::Benchmark<C>>(name: &str, benchmark: &B) -> Summary {
     let total = benchmark.total();
     let reads = benchmark.get_trace().completed_reads();
     let writes = benchmark.get_trace().completed_writes();
@@ -236,6 +238,8 @@ fn get_summary<B: benchmarks::Benchmark>(name: &str, benchmark: &B) -> Summary {
         operations: total.num_ops(),
         reads: reads,
         writes: writes,
+        num_files: benchmark.get_config().num_files(),
+        iowait: total.total_iowait(),
     }
 }
 

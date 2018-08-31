@@ -51,6 +51,17 @@ pub enum Filesystem {
     F2fs
 }
 
+impl Filesystem {
+    pub fn module_name(&self) -> String {
+        match self {
+            &Filesystem::Ext2 | &Filesystem::Ext4 | &Filesystem::Ext4NoJournal => String::from("ext4"),
+            &Filesystem::Xfs => String::from("xfs"),
+            &Filesystem::Btrfs => String::from("btrfs"),
+            &Filesystem::F2fs => String::from("f2fs"),
+        }
+    }
+}
+
 pub fn mkfs(device: &str, fs: &Filesystem) {
     use std::process::Command;
     match *fs {

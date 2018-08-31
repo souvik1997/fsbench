@@ -6,6 +6,7 @@ use super::fsbench::fileset::*;
 use super::fsbench::operation::*;
 use super::fsbench::statistics::*;
 use super::fsbench::util::*;
+use super::fsbench::ftrace::*;
 use super::nix;
 use super::serde_json;
 use std::error::Error;
@@ -16,6 +17,7 @@ use std::path::{Path, PathBuf};
 pub struct CreateFilesConfig {
     num_files: usize,
     dir_width: usize,
+    module_name: String,
 }
 
 impl CreateFilesConfig {
@@ -38,12 +40,14 @@ impl Config for CreateFilesConfig {
                 Self {
                     num_files: EXT4_NUM_FILES,
                     dir_width: EXT4_DIR_WIDTH,
+                    module_name: fs.module_name(),
                 }
             },
             _ => {
                 Self {
                     num_files: super::DEFAULT_NUM_FILES,
                     dir_width: super::DEFAULT_DIR_WIDTH,
+                    module_name: fs.module_name(),
                 }
             }
         }
@@ -57,6 +61,7 @@ pub struct CreateFilesBatchSyncConfig {
     num_files: usize,
     dir_width: usize,
     batch_size: usize,
+    module_name: String,
 }
 
 impl CreateFilesBatchSyncConfig {
@@ -76,6 +81,7 @@ impl Config for CreateFilesBatchSyncConfig {
                     num_files: super::DEFAULT_NUM_FILES,
                     dir_width: super::DEFAULT_DIR_WIDTH,
                     batch_size: 10,
+                    module_name: fs.module_name(),
                 }
             }
         }
@@ -88,6 +94,7 @@ impl Config for CreateFilesBatchSyncConfig {
 pub struct CreateFilesEachSyncConfig {
     num_files: usize,
     dir_width: usize,
+    module_name: String,
 }
 
 impl CreateFilesEachSyncConfig {
@@ -106,6 +113,7 @@ impl Config for CreateFilesEachSyncConfig {
                 Self {
                     num_files: super::DEFAULT_NUM_FILES,
                     dir_width: super::DEFAULT_DIR_WIDTH,
+                    module_name: fs.module_name(),
                 }
             }
         }
@@ -140,6 +148,7 @@ impl<'a> CreateFiles<'a> {
                 FileSet::new(createfiles_config.num_files, &base_path, createfiles_config.dir_width),
                 &base_config.blktrace,
                 None,
+                createfiles_config.module_name.clone(),
             ),
             base_config: base_config,
             createfiles_config: createfiles_config,
@@ -176,6 +185,7 @@ impl<'a> CreateFilesBatchSync<'a> {
                 FileSet::new(createfiles_config.num_files, &base_path, createfiles_config.dir_width),
                 &base_config.blktrace,
                 Some(createfiles_config.batch_size),
+                createfiles_config.module_name.clone(),
             ),
             base_config: base_config,
             createfiles_config: createfiles_config,
@@ -213,6 +223,7 @@ impl<'a> CreateFilesEachSync<'a> {
                 FileSet::new(createfiles_config.num_files, &base_path, createfiles_config.dir_width),
                 &base_config.blktrace,
                 Some(0),
+                createfiles_config.module_name.clone(),
             ),
             base_config: base_config,
             createfiles_config: createfiles_config,
@@ -248,10 +259,11 @@ struct CreateFilesShared {
     fsync: Stats,
     sync: Stats,
     trace: Trace,
+    ftrace: Ftrace,
 }
 
 impl CreateFilesShared {
-    pub fn run(file_set: FileSet, blktrace: &Blktrace, batch_size: Option<usize>) -> Self {
+    pub fn run(file_set: FileSet, blktrace: &Blktrace, batch_size: Option<usize>, module_name: String) -> Self {
         use super::rand;
         use rand::Rng;
         use std::os::unix::io::RawFd;
@@ -272,8 +284,9 @@ impl CreateFilesShared {
             mkdir(parent_path).expect("failed to construct directory tree");
         }
 
-        let trace = blktrace
-            .record_with(|| {
+        let mut ftrace = None;
+        let trace = blktrace.record_with(|| {
+            ftrace = Some(Ftracer::new(FtraceConfig { module: module_name.clone() }).record_with(|| {
                 // Create directory structure and files
                 let mut fd_queue: Vec<(RawFd, &Path)> = Vec::new();
                 fd_queue.reserve(batch_size.unwrap_or(0));
@@ -314,8 +327,9 @@ impl CreateFilesShared {
                     nix::unistd::close(dir_fd).expect("failed to close dir fd");
                 }
                 sync.run();
-            })
-            .expect("failed to record trace");
+            }).expect("failed to record ftrace"));
+        })
+        .expect("failed to record trace");
 
         info!("Finished micro-create:");
         let open_stats = open.get_stats();
@@ -338,6 +352,7 @@ impl CreateFilesShared {
             fsync: fsync_stats,
             sync: sync_stats,
             trace: trace,
+            ftrace: ftrace.unwrap()
         }
     }
 
@@ -347,7 +362,9 @@ impl CreateFilesShared {
         serde_json::to_writer(File::create(path.as_ref().join("close.json"))?, &self.close)?;
         serde_json::to_writer(File::create(path.as_ref().join("fsync.json"))?, &self.fsync)?;
         serde_json::to_writer(File::create(path.as_ref().join("sync.json"))?, &self.sync)?;
-        self.trace.export(&path, &"blktrace")
+        self.trace.export(&path, &"blktrace")?;
+        self.ftrace.export(&path, &"trace.dat")?;
+        Ok(())
     }
 
     fn total(&self) -> Stats {

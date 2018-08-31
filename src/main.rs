@@ -217,6 +217,7 @@ fn main() {
 struct Summary {
     name: String,
     duration: Duration,
+    elapsed: Duration,
     io_duration: Duration,
     io_requests: usize,
     operations: usize,
@@ -233,6 +234,7 @@ fn get_summary<C: benchmarks::Config, B: benchmarks::Benchmark<C>>(name: &str, b
     Summary {
         name: name.to_owned(),
         duration: total.total_latency(),
+        elapsed: benchmark.get_trace().total_duration(),
         io_duration: benchmark.get_trace().io_duration(),
         io_requests: benchmark.get_trace().num_requests(),
         operations: total.num_ops(),

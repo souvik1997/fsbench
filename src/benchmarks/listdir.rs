@@ -26,6 +26,7 @@ pub struct ListDir<'a> {
 pub struct ListDirConfig {
     num_files: usize,
     dir_width: usize,
+    module_name: String,
 }
 
 use std::error::Error;
@@ -41,10 +42,11 @@ impl ListDirConfig {
 }
 
 impl Config for ListDirConfig {
-    fn config_for(_fs: &Filesystem) -> Self {
+    fn config_for(fs: &Filesystem) -> Self {
         Self {
             num_files: super::DEFAULT_NUM_FILES,
             dir_width: super::DEFAULT_DIR_WIDTH,
+            module_name: fs.module_name(),
         }
     }
 

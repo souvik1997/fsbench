@@ -6,3 +6,4 @@ pub mod operation;
 pub mod statistics;
 pub mod util;
 pub mod mount;
+pub mod ftrace;
